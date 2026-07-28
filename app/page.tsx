@@ -1,65 +1,149 @@
-import Image from "next/image";
+import Link from "next/link";
+import {
+  ArrowRight,
+  ShieldCheck,
+  Send,
+  Wallet,
+} from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+          <Link href="/" className="text-2xl font-bold text-emerald-600">
+            NovaPay
+          </Link>
+
+          <nav className="flex items-center gap-4">
+            <Link
+              href="/login"
+              className="font-medium text-slate-700 hover:text-slate-950"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Login
+            </Link>
+
+            <Link
+              href="/register"
+              className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-700"
             >
-              Learning
-            </a>{" "}
-            center.
+              Create Account
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      <section className="mx-auto grid max-w-7xl gap-12 px-6 py-20 lg:grid-cols-2 lg:items-center">
+        <div>
+          <p className="mb-4 font-semibold text-emerald-600">
+            Simple. Secure. Fast.
           </p>
+
+          <h1 className="max-w-xl text-5xl font-bold leading-tight tracking-tight md:text-6xl">
+            A smarter way to manage your money.
+          </h1>
+
+          <p className="mt-6 max-w-xl text-lg leading-8 text-slate-600">
+            Send money, receive payments, track transactions and manage your
+            wallet from one secure platform.
+          </p>
+
+          <div className="mt-8 flex flex-wrap gap-4">
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white hover:bg-emerald-700"
+            >
+              Get Started
+              <ArrowRight size={18} />
+            </Link>
+
+            <Link
+              href="/login"
+              className="rounded-xl border border-slate-300 bg-white px-6 py-3 font-semibold text-slate-900 hover:bg-slate-100"
+            >
+              Sign In
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="rounded-3xl bg-slate-900 p-8 text-white shadow-xl">
+          <p className="text-sm text-slate-400">Available Balance</p>
+
+          <h2 className="mt-2 text-4xl font-bold">
+            £12,480.50
+          </h2>
+
+          <div className="mt-8 grid grid-cols-2 gap-4">
+            <div className="rounded-2xl bg-white/10 p-5">
+              <Send className="mb-4" />
+              <p className="font-semibold">Send Money</p>
+            </div>
+
+            <div className="rounded-2xl bg-white/10 p-5">
+              <Wallet className="mb-4" />
+              <p className="font-semibold">Add Money</p>
+            </div>
+          </div>
+
+          <div className="mt-8 border-t border-white/10 pt-6">
+            <p className="text-sm text-slate-400">
+              Recent activity
+            </p>
+
+            <div className="mt-4 flex items-center justify-between">
+              <span>Payment received</span>
+              <span className="font-semibold">
+                +£450.00
+              </span>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <span>Transfer sent</span>
+              <span className="font-semibold">
+                -£120.00
+              </span>
+            </div>
+          </div>
         </div>
-      </main>
-    </div>
+      </section>
+
+      <section className="border-y border-slate-200 bg-white">
+        <div className="mx-auto grid max-w-7xl gap-6 px-6 py-16 md:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 p-6">
+            <Wallet className="mb-4 text-emerald-600" />
+            <h3 className="text-xl font-semibold">
+              Digital Wallet
+            </h3>
+            <p className="mt-2 text-slate-600">
+              View balances and manage your funds from one dashboard.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 p-6">
+            <Send className="mb-4 text-emerald-600" />
+            <h3 className="text-xl font-semibold">
+              Fast Transfers
+            </h3>
+            <p className="mt-2 text-slate-600">
+              Send funds securely between users in seconds.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 p-6">
+            <ShieldCheck className="mb-4 text-emerald-600" />
+            <h3 className="text-xl font-semibold">
+              Built for Security
+            </h3>
+            <p className="mt-2 text-slate-600">
+              Secure authentication and server-side transaction controls.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <footer className="px-6 py-8 text-center text-sm text-slate-500">
+        © 2026 NovaPay. Demo fintech platform.
+      </footer>
+    </main>
   );
 }
