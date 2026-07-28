@@ -532,8 +532,8 @@ export async function POST(
         await prisma.$transaction(
           async (tx) => {
             /*
-             * Re-check daily controls inside
-             * the financial transaction.
+             * Read both wallets inside the
+             * serializable financial transaction.
              */
             const currentWallet =
               await tx.wallet.findUnique({
@@ -543,8 +543,13 @@ export async function POST(
                 },
 
                 select: {
+                  id: true,
+                  balance: true,
+                  currency: true,
+
                   personalDailyTransferLimit:
                     true,
+
                   transfersEnabled:
                     true,
                 },
@@ -556,12 +561,47 @@ export async function POST(
               );
             }
 
-            if (!currentWallet.transfersEnabled) {
+            if (
+              !currentWallet.transfersEnabled
+            ) {
               throw new Error(
                 "TRANSFERS_DISABLED"
               );
             }
 
+            const currentReceiverWallet =
+              await tx.wallet.findUnique({
+                where: {
+                  id:
+                    receiverWallet.id,
+                },
+
+                select: {
+                  id: true,
+                  balance: true,
+                  currency: true,
+                },
+              });
+
+            if (!currentReceiverWallet) {
+              throw new Error(
+                "RECIPIENT_NOT_FOUND"
+              );
+            }
+
+            if (
+              currentWallet.currency !==
+              currentReceiverWallet.currency
+            ) {
+              throw new Error(
+                "CURRENCY_MISMATCH"
+              );
+            }
+
+            /*
+             * Re-check the user's effective
+             * daily transfer limit.
+             */
             const currentPersonalLimit =
               currentWallet
                 .personalDailyTransferLimit !==
@@ -588,7 +628,7 @@ export async function POST(
               tx.transaction.aggregate({
                 where: {
                   senderWalletId:
-                    sender.wallet!.id,
+                    currentWallet.id,
 
                   type: "TRANSFER",
                   status:
@@ -608,7 +648,7 @@ export async function POST(
               tx.transaction.count({
                 where: {
                   senderWalletId:
-                    sender.wallet!.id,
+                    currentWallet.id,
 
                   type: "TRANSFER",
                   status:
@@ -647,11 +687,15 @@ export async function POST(
               );
             }
 
+            /*
+             * Debit sender only when the
+             * wallet still has enough money.
+             */
             const senderDebit =
               await tx.wallet.updateMany({
                 where: {
                   id:
-                    sender.wallet!.id,
+                    currentWallet.id,
 
                   balance: {
                     gte: amount,
@@ -660,8 +704,7 @@ export async function POST(
 
                 data: {
                   balance: {
-                    decrement:
-                      amount,
+                    decrement: amount,
                   },
                 },
               });
@@ -674,37 +717,151 @@ export async function POST(
               );
             }
 
-            await tx.wallet.update({
-              where: {
-                id:
-                  receiverWallet.id,
-              },
-
-              data: {
-                balance: {
-                  increment:
-                    amount,
+            /*
+             * Read sender's resulting balance.
+             */
+            const updatedSenderWallet =
+              await tx.wallet.findUnique({
+                where: {
+                  id:
+                    currentWallet.id,
                 },
-              },
+
+                select: {
+                  balance: true,
+                  currency: true,
+                },
+              });
+
+            if (!updatedSenderWallet) {
+              throw new Error(
+                "SENDER_WALLET_MISSING"
+              );
+            }
+
+            /*
+             * Credit recipient and obtain
+             * their resulting balance.
+             */
+            const updatedReceiverWallet =
+              await tx.wallet.update({
+                where: {
+                  id:
+                    currentReceiverWallet.id,
+                },
+
+                data: {
+                  balance: {
+                    increment:
+                      amount,
+                  },
+                },
+
+                select: {
+                  balance: true,
+                  currency: true,
+                },
+              });
+
+            /*
+             * Create the transfer record.
+             */
+            const createdTransaction =
+              await tx.transaction.create({
+                data: {
+                  reference,
+                  idempotencyKey,
+                  amount,
+                  narration,
+
+                  type: "TRANSFER",
+
+                  status:
+                    "SUCCESSFUL",
+
+                  senderWalletId:
+                    currentWallet.id,
+
+                  receiverWalletId:
+                    currentReceiverWallet.id,
+                },
+              });
+
+            /*
+             * Every transfer now creates
+             * two immutable ledger entries.
+             */
+            await tx.ledgerEntry.createMany({
+              data: [
+                {
+                  entryReference:
+                    `LEDGER-${reference}-DEBIT`,
+
+                  walletId:
+                    currentWallet.id,
+
+                  transactionId:
+                    createdTransaction.id,
+
+                  direction:
+                    "DEBIT",
+
+                  source:
+                    "TRANSFER",
+
+                  amount:
+                    createdTransaction.amount,
+
+                  balanceBefore:
+                    currentWallet.balance,
+
+                  balanceAfter:
+                    updatedSenderWallet.balance,
+
+                  currency:
+                    updatedSenderWallet.currency,
+
+                  description:
+                    narration ||
+                    "Wallet transfer",
+                },
+
+                {
+                  entryReference:
+                    `LEDGER-${reference}-CREDIT`,
+
+                  walletId:
+                    currentReceiverWallet.id,
+
+                  transactionId:
+                    createdTransaction.id,
+
+                  direction:
+                    "CREDIT",
+
+                  source:
+                    "TRANSFER",
+
+                  amount:
+                    createdTransaction.amount,
+
+                  balanceBefore:
+                    currentReceiverWallet.balance,
+
+                  balanceAfter:
+                    updatedReceiverWallet.balance,
+
+                  currency:
+                    updatedReceiverWallet.currency,
+
+                  description:
+                    narration ||
+                    "Wallet transfer",
+                },
+              ],
             });
 
-            return tx.transaction.create({
-              data: {
-                reference,
-                idempotencyKey,
-                amount,
-                narration,
-                type: "TRANSFER",
-                status:
-                  "SUCCESSFUL",
-
-                senderWalletId:
-                  sender.wallet!.id,
-
-                receiverWalletId:
-                  receiverWallet.id,
-              },
-            });
+            return createdTransaction;
           },
           {
             isolationLevel:

@@ -201,31 +201,113 @@ export async function POST(request: Request) {
       const transaction =
         await prisma.$transaction(
           async (tx) => {
-            await tx.wallet.update({
-              where: {
-                id: user.wallet!.id,
-              },
-
-              data: {
-                balance: {
-                  increment: amount,
+            /*
+             * Read the current wallet balance
+             * inside the financial transaction.
+             */
+            const currentWallet =
+              await tx.wallet.findUnique({
+                where: {
+                  id: user.wallet!.id,
                 },
+
+                select: {
+                  id: true,
+                  balance: true,
+                  currency: true,
+                },
+              });
+
+            if (!currentWallet) {
+              throw new Error(
+                "WALLET_NOT_FOUND"
+              );
+            }
+
+            /*
+             * Credit the wallet and obtain
+             * the resulting balance.
+             */
+            const updatedWallet =
+              await tx.wallet.update({
+                where: {
+                  id: currentWallet.id,
+                },
+
+                data: {
+                  balance: {
+                    increment: amount,
+                  },
+                },
+
+                select: {
+                  balance: true,
+                  currency: true,
+                },
+              });
+
+            /*
+             * Create the financial
+             * transaction record.
+             */
+            const createdTransaction =
+              await tx.transaction.create({
+                data: {
+                  reference,
+                  idempotencyKey,
+                  amount,
+
+                  narration:
+                    "Development wallet funding",
+
+                  type: "FUNDING",
+                  status: "SUCCESSFUL",
+
+                  receiverWalletId:
+                    currentWallet.id,
+                },
+              });
+
+            /*
+             * Record the immutable ledger
+             * entry in the SAME transaction.
+             */
+            await tx.ledgerEntry.create({
+              data: {
+                entryReference:
+                  `LEDGER-${reference}-CREDIT`,
+
+                walletId:
+                  currentWallet.id,
+
+                transactionId:
+                  createdTransaction.id,
+
+                direction: "CREDIT",
+                source: "FUNDING",
+
+                amount:
+                  createdTransaction.amount,
+
+                balanceBefore:
+                  currentWallet.balance,
+
+                balanceAfter:
+                  updatedWallet.balance,
+
+                currency:
+                  updatedWallet.currency,
+
+                description:
+                  "Development wallet funding",
               },
             });
 
-            return tx.transaction.create({
-              data: {
-                reference,
-                idempotencyKey,
-                amount,
-                narration:
-                  "Development wallet funding",
-                type: "FUNDING",
-                status: "SUCCESSFUL",
-                receiverWalletId:
-                  user.wallet!.id,
-              },
-            });
+            return createdTransaction;
+          },
+          {
+            isolationLevel:
+              "Serializable",
           }
         );
 

@@ -8,22 +8,22 @@ datasource db {
 }
 
 model User {
-  id             String   @id @default(cuid())
-  firstName      String
-  lastName       String
-  email          String   @unique
-  phone          String?  @unique
-  passwordHash   String
+  id              String    @id @default(cuid())
+  firstName       String
+  lastName        String
+  email           String    @unique
+  phone           String?   @unique
+  passwordHash    String
   emailVerified   Boolean   @default(false)
   emailVerifiedAt DateTime?
-  sessionVersion Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  sessionVersion  Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  wallet              Wallet?
-  beneficiaries       Beneficiary[]        @relation("BeneficiaryOwner")
-  sessions            Session[]
-  passwordResetTokens PasswordResetToken[]
+  wallet                  Wallet?
+  beneficiaries           Beneficiary[]            @relation("BeneficiaryOwner")
+  sessions                Session[]
+  passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
 }
 
@@ -43,6 +43,7 @@ model Wallet {
   sentTransactions     Transaction[] @relation("SentTransactions")
   receivedTransactions Transaction[] @relation("ReceivedTransactions")
   savedBy              Beneficiary[] @relation("BeneficiaryWallet")
+  ledgerEntries        LedgerEntry[]
 }
 
 model Transaction {
@@ -58,8 +59,9 @@ model Transaction {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
-  senderWallet   Wallet? @relation("SentTransactions", fields: [senderWalletId], references: [id])
-  receiverWallet Wallet? @relation("ReceivedTransactions", fields: [receiverWalletId], references: [id])
+  senderWallet   Wallet?       @relation("SentTransactions", fields: [senderWalletId], references: [id])
+  receiverWallet Wallet?       @relation("ReceivedTransactions", fields: [receiverWalletId], references: [id])
+  ledgerEntries  LedgerEntry[]
 
   @@index([senderWalletId])
   @@index([receiverWalletId])
@@ -114,17 +116,53 @@ model PasswordResetToken {
 }
 
 model EmailVerificationToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  tokenHash String   @unique
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model LedgerEntry {
+  id             String          @id @default(cuid())
+  entryReference String          @unique
+  walletId       String
+  transactionId  String?
+  direction      LedgerDirection
+  source         LedgerSource
+  amount         Decimal
+  balanceBefore  Decimal
+  balanceAfter   Decimal
+  currency       String          @default("NGN")
+  description    String?
+  createdAt      DateTime        @default(now())
+
+  wallet      Wallet       @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+
+  @@index([walletId])
+  @@index([transactionId])
+  @@index([createdAt])
+  @@index([walletId, createdAt])
+}
+
+enum LedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+enum LedgerSource {
+  OPENING_BALANCE
+  TRANSFER
+  FUNDING
+  PAYMENT
+  REVERSAL
 }
 
 model AuditLog {
