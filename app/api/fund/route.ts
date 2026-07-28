@@ -303,6 +303,124 @@ export async function POST(request: Request) {
               },
             });
 
+            /*
+             * DOUBLE-ENTRY ACCOUNTING
+             *
+             * Development clearing asset  DEBIT
+             * Customer wallet liability   CREDIT
+             */
+            const walletAccountingAccount =
+              await tx.accountingAccount.upsert({
+                where: {
+                  walletId:
+                    currentWallet.id,
+                },
+
+                update: {},
+
+                create: {
+                  code:
+                    `WALLET-${currentWallet.id}`,
+
+                  name:
+                    "Customer Wallet Liability",
+
+                  type:
+                    "LIABILITY",
+
+                  walletId:
+                    currentWallet.id,
+
+                  isSystem:
+                    false,
+                },
+              });
+
+            const clearingAccount =
+              await tx.accountingAccount.findUnique({
+                where: {
+                  code:
+                    "DEV_FUNDING_CLEARING",
+                },
+              });
+
+            if (!clearingAccount) {
+              throw new Error(
+                "ACCOUNTING_CLEARING_ACCOUNT_MISSING"
+              );
+            }
+
+            const accountingPosting =
+              await tx.accountingPosting.create({
+                data: {
+                  reference:
+                    `POSTING-${reference}`,
+
+                  transactionId:
+                    createdTransaction.id,
+
+                  description:
+                    "Development wallet funding",
+                },
+              });
+
+            await tx.accountingLine.createMany({
+              data: [
+                {
+                  postingId:
+                    accountingPosting.id,
+
+                  accountId:
+                    clearingAccount.id,
+
+                  side:
+                    "DEBIT",
+
+                  amount:
+                    createdTransaction.amount,
+
+                  currency:
+                    updatedWallet.currency,
+                },
+
+                {
+                  postingId:
+                    accountingPosting.id,
+
+                  accountId:
+                    walletAccountingAccount.id,
+
+                  side:
+                    "CREDIT",
+
+                  amount:
+                    createdTransaction.amount,
+
+                  currency:
+                    updatedWallet.currency,
+                },
+              ],
+            });
+
+            /*
+             * PostgreSQL trigger verifies:
+             *
+             * total DEBITS = total CREDITS
+             *
+             * before allowing posting.
+             */
+            await tx.accountingPosting.update({
+              where: {
+                id:
+                  accountingPosting.id,
+              },
+
+              data: {
+                postedAt:
+                  new Date(),
+              },
+            });
+
             return createdTransaction;
           },
           {

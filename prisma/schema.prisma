@@ -40,10 +40,11 @@ model Wallet {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  sentTransactions     Transaction[] @relation("SentTransactions")
-  receivedTransactions Transaction[] @relation("ReceivedTransactions")
-  savedBy              Beneficiary[] @relation("BeneficiaryWallet")
+  sentTransactions     Transaction[]      @relation("SentTransactions")
+  receivedTransactions Transaction[]      @relation("ReceivedTransactions")
+  savedBy              Beneficiary[]      @relation("BeneficiaryWallet")
   ledgerEntries        LedgerEntry[]
+  accountingAccount    AccountingAccount?
 }
 
 model Transaction {
@@ -59,9 +60,10 @@ model Transaction {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
-  senderWallet   Wallet?       @relation("SentTransactions", fields: [senderWalletId], references: [id])
-  receiverWallet Wallet?       @relation("ReceivedTransactions", fields: [receiverWalletId], references: [id])
-  ledgerEntries  LedgerEntry[]
+  senderWallet      Wallet?            @relation("SentTransactions", fields: [senderWalletId], references: [id])
+  receiverWallet    Wallet?            @relation("ReceivedTransactions", fields: [receiverWalletId], references: [id])
+  ledgerEntries     LedgerEntry[]
+  accountingPosting AccountingPosting?
 
   @@index([senderWalletId])
   @@index([receiverWalletId])
@@ -163,6 +165,67 @@ enum LedgerSource {
   FUNDING
   PAYMENT
   REVERSAL
+}
+
+model AccountingAccount {
+  id        String                @id @default(cuid())
+  code      String                @unique
+  name      String
+  type      AccountingAccountType
+  walletId  String?               @unique
+  isSystem  Boolean               @default(false)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  wallet Wallet?          @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  lines  AccountingLine[]
+
+  @@index([type])
+}
+
+model AccountingPosting {
+  id            String    @id @default(cuid())
+  reference     String    @unique
+  transactionId String?   @unique
+  description   String?
+  postedAt      DateTime?
+  createdAt     DateTime  @default(now())
+
+  transaction Transaction?     @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  lines       AccountingLine[]
+
+  @@index([postedAt])
+  @@index([createdAt])
+}
+
+model AccountingLine {
+  id        String         @id @default(cuid())
+  postingId String
+  accountId String
+  side      AccountingSide
+  amount    Decimal
+  currency  String         @default("NGN")
+  createdAt DateTime       @default(now())
+
+  posting AccountingPosting @relation(fields: [postingId], references: [id], onDelete: Restrict)
+  account AccountingAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([postingId])
+  @@index([accountId])
+  @@index([createdAt])
+}
+
+enum AccountingAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+enum AccountingSide {
+  DEBIT
+  CREDIT
 }
 
 model AuditLog {

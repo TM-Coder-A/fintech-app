@@ -861,6 +861,135 @@ export async function POST(
               ],
             });
 
+            /*
+             * DOUBLE-ENTRY ACCOUNTING
+             *
+             * Sender wallet liability    DEBIT
+             * Receiver wallet liability  CREDIT
+             */
+            const senderAccountingAccount =
+              await tx.accountingAccount.upsert({
+                where: {
+                  walletId:
+                    currentWallet.id,
+                },
+
+                update: {},
+
+                create: {
+                  code:
+                    `WALLET-${currentWallet.id}`,
+
+                  name:
+                    "Customer Wallet Liability",
+
+                  type:
+                    "LIABILITY",
+
+                  walletId:
+                    currentWallet.id,
+
+                  isSystem:
+                    false,
+                },
+              });
+
+            const receiverAccountingAccount =
+              await tx.accountingAccount.upsert({
+                where: {
+                  walletId:
+                    currentReceiverWallet.id,
+                },
+
+                update: {},
+
+                create: {
+                  code:
+                    `WALLET-${currentReceiverWallet.id}`,
+
+                  name:
+                    "Customer Wallet Liability",
+
+                  type:
+                    "LIABILITY",
+
+                  walletId:
+                    currentReceiverWallet.id,
+
+                  isSystem:
+                    false,
+                },
+              });
+
+            const accountingPosting =
+              await tx.accountingPosting.create({
+                data: {
+                  reference:
+                    `POSTING-${reference}`,
+
+                  transactionId:
+                    createdTransaction.id,
+
+                  description:
+                    narration ||
+                    "Wallet transfer",
+                },
+              });
+
+            await tx.accountingLine.createMany({
+              data: [
+                {
+                  postingId:
+                    accountingPosting.id,
+
+                  accountId:
+                    senderAccountingAccount.id,
+
+                  side:
+                    "DEBIT",
+
+                  amount:
+                    createdTransaction.amount,
+
+                  currency:
+                    currentWallet.currency,
+                },
+
+                {
+                  postingId:
+                    accountingPosting.id,
+
+                  accountId:
+                    receiverAccountingAccount.id,
+
+                  side:
+                    "CREDIT",
+
+                  amount:
+                    createdTransaction.amount,
+
+                  currency:
+                    currentReceiverWallet.currency,
+                },
+              ],
+            });
+
+            /*
+             * Finalisation triggers the
+             * database balancing check.
+             */
+            await tx.accountingPosting.update({
+              where: {
+                id:
+                  accountingPosting.id,
+              },
+
+              data: {
+                postedAt:
+                  new Date(),
+              },
+            });
+
             return createdTransaction;
           },
           {
