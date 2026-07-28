@@ -345,6 +345,24 @@ export async function POST(
       );
     }
 
+    const personalDailyLimit =
+      sender.wallet
+        .personalDailyTransferLimit !==
+      null
+        ? Number(
+            sender.wallet
+              .personalDailyTransferLimit
+          )
+        : null;
+
+    const effectiveDailyLimit =
+      personalDailyLimit === null
+        ? DAILY_TRANSFER_LIMIT
+        : Math.min(
+            personalDailyLimit,
+            DAILY_TRANSFER_LIMIT
+          );
+
     const { start, end } =
       getNigeriaDayBounds();
 
@@ -402,7 +420,7 @@ export async function POST(
 
     if (
       projectedDailyTotal >
-      DAILY_TRANSFER_LIMIT
+      effectiveDailyLimit
     ) {
       await writeAuditLog({
         request,
@@ -420,7 +438,7 @@ export async function POST(
             amountUsedToday,
 
           dailyLimit:
-            DAILY_TRANSFER_LIMIT,
+            effectiveDailyLimit,
         },
       });
 
@@ -433,7 +451,7 @@ export async function POST(
 
           limit: {
             daily:
-              DAILY_TRANSFER_LIMIT,
+              effectiveDailyLimit,
 
             used:
               amountUsedToday,
@@ -441,7 +459,7 @@ export async function POST(
             remaining:
               Math.max(
                 0,
-                DAILY_TRANSFER_LIMIT -
+                effectiveDailyLimit -
                   amountUsedToday
               ),
           },
@@ -494,6 +512,44 @@ export async function POST(
              * Re-check daily controls inside
              * the financial transaction.
              */
+            const currentWallet =
+              await tx.wallet.findUnique({
+                where: {
+                  id:
+                    sender.wallet!.id,
+                },
+
+                select: {
+                  personalDailyTransferLimit:
+                    true,
+                },
+              });
+
+            if (!currentWallet) {
+              throw new Error(
+                "SENDER_WALLET_MISSING"
+              );
+            }
+
+            const currentPersonalLimit =
+              currentWallet
+                .personalDailyTransferLimit !==
+              null
+                ? Number(
+                    currentWallet
+                      .personalDailyTransferLimit
+                  )
+                : null;
+
+            const transactionDailyLimit =
+              currentPersonalLimit ===
+              null
+                ? DAILY_TRANSFER_LIMIT
+                : Math.min(
+                    currentPersonalLimit,
+                    DAILY_TRANSFER_LIMIT
+                  );
+
             const [
               lockedDailyAmount,
               lockedDailyCount,
@@ -544,7 +600,7 @@ export async function POST(
             if (
               currentDailyAmount +
                 amount >
-              DAILY_TRANSFER_LIMIT
+              transactionDailyLimit
             ) {
               throw new Error(
                 "DAILY_AMOUNT_LIMIT"

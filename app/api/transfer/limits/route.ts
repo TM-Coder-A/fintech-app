@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit";
 import { getAuthenticatedUserId } from "@/lib/auth/require-session";
 import { getNigeriaDayBounds } from "@/lib/day-boundaries";
+import { transferSettingsSchema } from "@/lib/validation/transfer-settings";
 
 import {
   DAILY_TRANSFER_COUNT_LIMIT,
@@ -20,8 +22,7 @@ export async function GET() {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Not authenticated.",
+          message: "Not authenticated.",
         },
         { status: 401 }
       );
@@ -42,12 +43,29 @@ export async function GET() {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Wallet not found.",
+          message: "Wallet not found.",
         },
         { status: 404 }
       );
     }
+
+    const personalLimit =
+      user.wallet
+        .personalDailyTransferLimit !==
+      null
+        ? Number(
+            user.wallet
+              .personalDailyTransferLimit
+          )
+        : null;
+
+    const effectiveDailyLimit =
+      personalLimit === null
+        ? DAILY_TRANSFER_LIMIT
+        : Math.min(
+            personalLimit,
+            DAILY_TRANSFER_LIMIT
+          );
 
     const { start, end } =
       getNigeriaDayBounds();
@@ -91,10 +109,9 @@ export async function GET() {
       }),
     ]);
 
-    const usedToday =
+    const amountUsed =
       Number(
-        amountResult._sum.amount ??
-          0
+        amountResult._sum.amount ?? 0
       );
 
     return NextResponse.json({
@@ -107,22 +124,27 @@ export async function GET() {
         maximumPerTransfer:
           MAX_TRANSFER_AMOUNT,
 
-        dailyAmount:
+        platformDailyAmount:
           DAILY_TRANSFER_LIMIT,
+
+        personalDailyAmount:
+          personalLimit,
+
+        effectiveDailyAmount:
+          effectiveDailyLimit,
 
         dailyCount:
           DAILY_TRANSFER_COUNT_LIMIT,
       },
 
       usage: {
-        amountUsed:
-          usedToday,
+        amountUsed,
 
         amountRemaining:
           Math.max(
             0,
-            DAILY_TRANSFER_LIMIT -
-              usedToday
+            effectiveDailyLimit -
+              amountUsed
           ),
 
         transfersUsed:
@@ -147,6 +169,140 @@ export async function GET() {
         success: false,
         message:
           "Unable to load transfer limits.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  request: Request
+) {
+  try {
+    const userId =
+      await getAuthenticatedUserId();
+
+    if (!userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Not authenticated.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const body =
+      await request.json();
+
+    const result =
+      transferSettingsSchema.safeParse(
+        body
+      );
+
+    if (!result.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            result.error.issues[0]
+              ?.message ??
+            "Invalid transfer limit.",
+          errors:
+            result.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const wallet =
+      await prisma.wallet.findUnique({
+        where: {
+          userId,
+        },
+      });
+
+    if (!wallet) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Wallet not found.",
+        },
+        { status: 404 }
+      );
+    }
+
+    const oldLimit =
+      wallet.personalDailyTransferLimit !==
+      null
+        ? Number(
+            wallet.personalDailyTransferLimit
+          )
+        : null;
+
+    const updatedWallet =
+      await prisma.wallet.update({
+        where: {
+          id: wallet.id,
+        },
+
+        data: {
+          personalDailyTransferLimit:
+            result.data.dailyLimit,
+        },
+      });
+
+    await writeAuditLog({
+      request,
+      userId,
+      action:
+        "TRANSFER_LIMIT_UPDATE",
+
+      entityType: "WALLET",
+      entityId: wallet.id,
+
+      metadata: {
+        previousLimit:
+          oldLimit,
+
+        newLimit:
+          result.data.dailyLimit,
+
+        platformLimit:
+          DAILY_TRANSFER_LIMIT,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+
+      message:
+        result.data.dailyLimit ===
+        null
+          ? "Personal transfer limit removed."
+          : "Daily transfer limit updated.",
+
+      dailyLimit:
+        updatedWallet
+          .personalDailyTransferLimit !==
+        null
+          ? Number(
+              updatedWallet
+                .personalDailyTransferLimit
+            )
+          : null,
+    });
+  } catch (error) {
+    console.error(
+      "Transfer settings error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "Unable to update transfer limit.",
       },
       { status: 500 }
     );

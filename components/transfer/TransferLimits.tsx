@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   useEffect,
   useState,
@@ -15,7 +17,11 @@ type LimitData = {
   limits: {
     minimum: number;
     maximumPerTransfer: number;
-    dailyAmount: number;
+    platformDailyAmount: number;
+    personalDailyAmount:
+      | number
+      | null;
+    effectiveDailyAmount: number;
     dailyCount: number;
   };
 
@@ -62,14 +68,11 @@ export default function TransferLimits() {
           });
         }
       } catch {
-        /*
-         * Transfer can still function if
-         * this informational request fails.
-         */
+        // Informational only.
       }
     }
 
-    loadLimits();
+    void loadLimits();
 
     return () => {
       cancelled = true;
@@ -88,9 +91,18 @@ export default function TransferLimits() {
         </div>
 
         <div className="flex-1">
-          <p className="font-semibold text-slate-950">
-            Daily transfer limits
-          </p>
+          <div className="flex items-center justify-between gap-4">
+            <p className="font-semibold text-slate-950">
+              Daily transfer limits
+            </p>
+
+            <Link
+              href="/transfer/settings"
+              className="text-xs font-semibold text-emerald-600"
+            >
+              Manage
+            </Link>
+          </div>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
@@ -98,7 +110,7 @@ export default function TransferLimits() {
                 Remaining today
               </p>
 
-              <p className="mt-1 font-semibold text-slate-950">
+              <p className="mt-1 font-semibold">
                 {formatCurrency(
                   data.usage
                     .amountRemaining
@@ -108,10 +120,23 @@ export default function TransferLimits() {
 
             <div>
               <p className="text-xs text-slate-500">
+                Effective daily limit
+              </p>
+
+              <p className="mt-1 font-semibold">
+                {formatCurrency(
+                  data.limits
+                    .effectiveDailyAmount
+                )}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-slate-500">
                 Transfers remaining
               </p>
 
-              <p className="mt-1 font-semibold text-slate-950">
+              <p className="mt-1 font-semibold">
                 {
                   data.usage
                     .transfersRemaining
@@ -126,23 +151,10 @@ export default function TransferLimits() {
 
             <div>
               <p className="text-xs text-slate-500">
-                Daily limit
-              </p>
-
-              <p className="mt-1 font-semibold text-slate-950">
-                {formatCurrency(
-                  data.limits
-                    .dailyAmount
-                )}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs text-slate-500">
                 Per transaction
               </p>
 
-              <p className="mt-1 font-semibold text-slate-950">
+              <p className="mt-1 font-semibold">
                 Up to{" "}
                 {formatCurrency(
                   data.limits
@@ -151,6 +163,15 @@ export default function TransferLimits() {
               </p>
             </div>
           </div>
+
+          {data.limits
+            .personalDailyAmount !==
+            null && (
+            <p className="mt-4 text-xs text-slate-500">
+              You have enabled a
+              personal spending limit.
+            </p>
+          )}
         </div>
       </div>
     </div>

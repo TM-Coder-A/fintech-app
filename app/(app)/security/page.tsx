@@ -73,6 +73,14 @@ function getActivityDetails(
         icon: UserRound,
       };
 
+    case "TRANSFER_LIMIT_UPDATE":
+      return {
+        title: "Transfer limit changed",
+        description:
+          "Your personal daily transfer limit was updated.",
+        icon: ShieldCheck,
+      };
+
     case "TRANSFER_SUCCESS":
       return {
         title: "Transfer completed",
