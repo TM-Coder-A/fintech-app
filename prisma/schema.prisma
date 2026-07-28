@@ -25,6 +25,7 @@ model User {
   sessions                Session[]
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
+  fundingAttempts         FundingAttempt[]
 }
 
 model Wallet {
@@ -45,6 +46,7 @@ model Wallet {
   savedBy              Beneficiary[]      @relation("BeneficiaryWallet")
   ledgerEntries        LedgerEntry[]
   accountingAccount    AccountingAccount?
+  fundingAttempts      FundingAttempt[]
 }
 
 model Transaction {
@@ -250,6 +252,45 @@ enum ReconciliationStatus {
   PASSED
   ISSUES_FOUND
   ERROR
+}
+
+model FundingAttempt {
+  id                    String               @id @default(cuid())
+  userId                String
+  walletId              String
+  idempotencyKey        String               @unique
+  reference             String               @unique
+  amount                Decimal
+  currency              String               @default("NGN")
+  provider              FundingProvider      @default(PAYSTACK)
+  status                FundingAttemptStatus @default(PENDING)
+  authorizationUrl      String?
+  accessCode            String?
+  providerTransactionId String?
+  channel               String?
+  paidAt                DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([walletId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum FundingProvider {
+  PAYSTACK
+}
+
+enum FundingAttemptStatus {
+  PENDING
+  PROCESSING
+  SUCCESSFUL
+  FAILED
+  CANCELLED
 }
 
 model AuditLog {
