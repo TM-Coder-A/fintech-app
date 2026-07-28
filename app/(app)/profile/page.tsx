@@ -1,3 +1,4 @@
+import Link from "next/link";
 import ProfileForm from "@/components/profile/ProfileForm";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatCurrency } from "@/lib/format";
@@ -101,14 +102,35 @@ export default async function ProfilePage() {
             </section>
           </aside>
 
-          <ProfileForm
-            initialData={{
+          <div className="space-y-8">
+            <Link
+              href="/security"
+              className="flex items-center justify-between rounded-3xl border border-slate-200 bg-white p-6 transition hover:border-emerald-300"
+            >
+              <div>
+                <p className="font-semibold text-slate-950">
+                  Security activity
+                </p>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Review recent logins and sensitive account activity.
+                </p>
+              </div>
+
+              <span className="text-sm font-semibold text-emerald-600">
+                View
+              </span>
+            </Link>
+
+            <ProfileForm
+              initialData={{
               firstName: user.firstName,
               lastName: user.lastName,
               email: user.email,
               phone: user.phone ?? "",
             }}
           />
+          </div>
         </div>
       </div>
     </main>

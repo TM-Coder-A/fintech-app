@@ -6,6 +6,7 @@ import {
   History,
   LayoutDashboard,
   Send,
+  ShieldCheck,
   User,
   Wallet,
 } from "lucide-react";
@@ -41,6 +42,11 @@ const navItems = [
     href: "/profile",
     label: "Profile",
     icon: User,
+  },
+  {
+    href: "/security",
+    label: "Security",
+    icon: ShieldCheck,
   },
 ];
 
