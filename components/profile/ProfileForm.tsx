@@ -6,12 +6,16 @@ import {
 } from "react";
 
 import { useRouter } from "next/navigation";
+
 import {
+  Eye,
+  EyeOff,
   LockKeyhole,
   ShieldCheck,
 } from "lucide-react";
 
 import { profileSchema } from "@/lib/validation/profile";
+import { changePasswordSchema } from "@/lib/validation/change-password";
 
 interface ProfileFormProps {
   initialData: {
@@ -27,6 +31,9 @@ export default function ProfileForm({
 }: ProfileFormProps) {
   const router = useRouter();
 
+  /*
+   * Profile state
+   */
   const [firstName, setFirstName] =
     useState(initialData.firstName);
 
@@ -36,22 +43,60 @@ export default function ProfileForm({
   const [phone, setPhone] =
     useState(initialData.phone);
 
-  const [message, setMessage] =
+  const [profileMessage, setProfileMessage] =
     useState("");
 
-  const [error, setError] =
+  const [profileError, setProfileError] =
     useState("");
 
-  const [loading, setLoading] =
+  const [profileLoading, setProfileLoading] =
     useState(false);
 
-  async function handleSubmit(
+  /*
+   * Password state
+   */
+  const [
+    currentPassword,
+    setCurrentPassword,
+  ] = useState("");
+
+  const [
+    newPassword,
+    setNewPassword,
+  ] = useState("");
+
+  const [
+    confirmPassword,
+    setConfirmPassword,
+  ] = useState("");
+
+  const [
+    showCurrentPassword,
+    setShowCurrentPassword,
+  ] = useState(false);
+
+  const [
+    showNewPassword,
+    setShowNewPassword,
+  ] = useState(false);
+
+  const [
+    passwordError,
+    setPasswordError,
+  ] = useState("");
+
+  const [
+    passwordLoading,
+    setPasswordLoading,
+  ] = useState(false);
+
+  async function handleProfileSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
-    setMessage("");
-    setError("");
+    setProfileMessage("");
+    setProfileError("");
 
     const result =
       profileSchema.safeParse({
@@ -61,8 +106,9 @@ export default function ProfileForm({
       });
 
     if (!result.success) {
-      setError(
-        result.error.issues[0]?.message ??
+      setProfileError(
+        result.error.issues[0]
+          ?.message ??
           "Invalid profile details."
       );
 
@@ -70,29 +116,30 @@ export default function ProfileForm({
     }
 
     try {
-      setLoading(true);
+      setProfileLoading(true);
 
-      const response = await fetch(
-        "/api/profile",
-        {
-          method: "PATCH",
+      const response =
+        await fetch(
+          "/api/profile",
+          {
+            method: "PATCH",
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-          body: JSON.stringify(
-            result.data
-          ),
-        }
-      );
+            body: JSON.stringify(
+              result.data
+            ),
+          }
+        );
 
       const data =
         await response.json();
 
       if (!response.ok) {
-        setError(
+        setProfileError(
           data.message ??
             "Profile update failed."
         );
@@ -100,15 +147,88 @@ export default function ProfileForm({
         return;
       }
 
-      setMessage(data.message);
+      setProfileMessage(
+        data.message
+      );
 
       router.refresh();
     } catch {
-      setError(
+      setProfileError(
         "Could not reach the server."
       );
     } finally {
-      setLoading(false);
+      setProfileLoading(false);
+    }
+  }
+
+  async function handlePasswordSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    setPasswordError("");
+
+    const result =
+      changePasswordSchema.safeParse({
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
+
+    if (!result.success) {
+      setPasswordError(
+        result.error.issues[0]
+          ?.message ??
+          "Invalid password details."
+      );
+
+      return;
+    }
+
+    try {
+      setPasswordLoading(true);
+
+      const response =
+        await fetch(
+          "/api/change-password",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify(
+              result.data
+            ),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        setPasswordError(
+          data.message ??
+            "Password change failed."
+        );
+
+        return;
+      }
+
+      /*
+       * API removes the session cookie,
+       * so send the user back to login.
+       */
+      router.replace("/login");
+      router.refresh();
+    } catch {
+      setPasswordError(
+        "Could not reach the server."
+      );
+    } finally {
+      setPasswordLoading(false);
     }
   }
 
@@ -124,7 +244,7 @@ export default function ProfileForm({
         </p>
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={handleProfileSubmit}
           className="mt-6 space-y-5"
         >
           <div className="grid gap-5 sm:grid-cols-2">
@@ -144,6 +264,7 @@ export default function ProfileForm({
                     event.target.value
                   )
                 }
+                autoComplete="given-name"
                 className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
               />
             </div>
@@ -164,6 +285,7 @@ export default function ProfileForm({
                     event.target.value
                   )
                 }
+                autoComplete="family-name"
                 className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
               />
             </div>
@@ -202,30 +324,33 @@ export default function ProfileForm({
               id="phone"
               value={phone}
               onChange={(event) =>
-                setPhone(event.target.value)
+                setPhone(
+                  event.target.value
+                )
               }
+              autoComplete="tel"
               className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
             />
           </div>
 
-          {error && (
+          {profileError && (
             <div className="rounded-xl bg-rose-50 p-4 text-sm text-rose-700">
-              {error}
+              {profileError}
             </div>
           )}
 
-          {message && (
+          {profileMessage && (
             <div className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-700">
-              {message}
+              {profileMessage}
             </div>
           )}
 
           <button
             type="submit"
-            disabled={loading}
-            className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white disabled:bg-slate-300"
+            disabled={profileLoading}
+            className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {loading
+            {profileLoading
               ? "Saving..."
               : "Save Changes"}
           </button>
@@ -235,7 +360,9 @@ export default function ProfileForm({
       <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
         <div className="flex gap-4">
           <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
-            <ShieldCheck size={22} />
+            <ShieldCheck
+              size={22}
+            />
           </div>
 
           <div>
@@ -244,35 +371,195 @@ export default function ProfileForm({
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Manage your account security.
+              Change your account
+              password securely.
             </p>
           </div>
         </div>
 
-        <div className="mt-6 flex items-center justify-between rounded-2xl border border-slate-200 p-5">
-          <div className="flex items-center gap-3">
-            <LockKeyhole size={20} />
+        <form
+          onSubmit={handlePasswordSubmit}
+          className="mt-7 space-y-5"
+        >
+          <div>
+            <label
+              htmlFor="currentPassword"
+              className="mb-2 block text-sm font-medium"
+            >
+              Current password
+            </label>
 
-            <div>
-              <p className="font-medium">
-                Password
-              </p>
+            <div className="relative">
+              <LockKeyhole
+                size={18}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              />
 
-              <p className="text-sm text-slate-500">
-                Password management comes
-                in a later security stage.
-              </p>
+              <input
+                id="currentPassword"
+                type={
+                  showCurrentPassword
+                    ? "text"
+                    : "password"
+                }
+                value={
+                  currentPassword
+                }
+                onChange={(event) => {
+                  setCurrentPassword(
+                    event.target.value
+                  );
+                  setPasswordError("");
+                }}
+                autoComplete="current-password"
+                className="w-full rounded-xl border border-slate-300 py-3 pl-11 pr-12 outline-none focus:border-emerald-500"
+              />
+
+              <button
+                type="button"
+                onClick={() =>
+                  setShowCurrentPassword(
+                    (current) =>
+                      !current
+                  )
+                }
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
+                aria-label={
+                  showCurrentPassword
+                    ? "Hide current password"
+                    : "Show current password"
+                }
+              >
+                {showCurrentPassword ? (
+                  <EyeOff
+                    size={19}
+                  />
+                ) : (
+                  <Eye
+                    size={19}
+                  />
+                )}
+              </button>
             </div>
           </div>
 
+          <div>
+            <label
+              htmlFor="newPassword"
+              className="mb-2 block text-sm font-medium"
+            >
+              New password
+            </label>
+
+            <div className="relative">
+              <LockKeyhole
+                size={18}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+
+              <input
+                id="newPassword"
+                type={
+                  showNewPassword
+                    ? "text"
+                    : "password"
+                }
+                value={newPassword}
+                onChange={(event) => {
+                  setNewPassword(
+                    event.target.value
+                  );
+                  setPasswordError("");
+                }}
+                autoComplete="new-password"
+                className="w-full rounded-xl border border-slate-300 py-3 pl-11 pr-12 outline-none focus:border-emerald-500"
+              />
+
+              <button
+                type="button"
+                onClick={() =>
+                  setShowNewPassword(
+                    (current) =>
+                      !current
+                  )
+                }
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
+                aria-label={
+                  showNewPassword
+                    ? "Hide new password"
+                    : "Show new password"
+                }
+              >
+                {showNewPassword ? (
+                  <EyeOff
+                    size={19}
+                  />
+                ) : (
+                  <Eye
+                    size={19}
+                  />
+                )}
+              </button>
+            </div>
+
+            <p className="mt-2 text-xs text-slate-500">
+              At least 8 characters
+              with uppercase, lowercase
+              and a number.
+            </p>
+          </div>
+
+          <div>
+            <label
+              htmlFor="confirmPassword"
+              className="mb-2 block text-sm font-medium"
+            >
+              Confirm new password
+            </label>
+
+            <input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => {
+                setConfirmPassword(
+                  event.target.value
+                );
+                setPasswordError("");
+              }}
+              autoComplete="new-password"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          {passwordError && (
+            <div className="rounded-xl bg-rose-50 p-4 text-sm text-rose-700">
+              {passwordError}
+            </div>
+          )}
+
+          <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+            You will be signed out
+            after changing your
+            password and must log in
+            again.
+          </div>
+
           <button
-            type="button"
-            disabled
-            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-400"
+            type="submit"
+            disabled={
+              passwordLoading ||
+              !currentPassword ||
+              !newPassword ||
+              !confirmPassword
+            }
+            className="rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            Change Password
+            {passwordLoading
+              ? "Changing Password..."
+              : "Change Password"}
           </button>
-        </div>
+        </form>
       </div>
     </section>
   );
