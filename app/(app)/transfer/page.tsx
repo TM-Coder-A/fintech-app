@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  ArrowLeft,
   CheckCircle2,
   Send,
   User,
@@ -16,7 +14,7 @@ export default function TransferPage() {
   const [narration, setNarration] = useState("");
 
   const recipient = useMemo(() => {
-    if (accountNumber.length >= 10) {
+    if (accountNumber.length === 10) {
       return {
         name: "Sarah Michael",
         bank: "NovaPay Wallet",
@@ -27,26 +25,7 @@ export default function TransferPage() {
   }, [accountNumber]);
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link
-            href="/dashboard"
-            className="text-2xl font-bold text-emerald-600"
-          >
-            NovaPay
-          </Link>
-
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950"
-          >
-            <ArrowLeft size={16} />
-            Dashboard
-          </Link>
-        </div>
-      </header>
-
+    <main>
       <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 lg:grid-cols-[1.4fr_0.8fr]">
         <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
           <div className="mb-8">
@@ -77,7 +56,6 @@ export default function TransferPage() {
 
               <input
                 id="accountNumber"
-                name="accountNumber"
                 type="text"
                 inputMode="numeric"
                 value={accountNumber}
@@ -87,12 +65,8 @@ export default function TransferPage() {
                   )
                 }
                 placeholder="Enter 10-digit account number"
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
               />
-
-              <p className="mt-2 text-xs text-slate-500">
-                Demo lookup activates after 10 digits.
-              </p>
             </div>
 
             {recipient && (
@@ -130,14 +104,13 @@ export default function TransferPage() {
 
                 <input
                   id="amount"
-                  name="amount"
                   type="number"
                   min="0"
                   step="0.01"
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
                   placeholder="0.00"
-                  className="w-full rounded-xl border border-slate-300 bg-white py-3 pl-9 pr-4 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                  className="w-full rounded-xl border border-slate-300 bg-white py-3 pl-9 pr-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
                 />
               </div>
             </div>
@@ -152,13 +125,12 @@ export default function TransferPage() {
 
               <input
                 id="narration"
-                name="narration"
                 type="text"
                 maxLength={80}
                 value={narration}
                 onChange={(event) => setNarration(event.target.value)}
                 placeholder="What is this transfer for?"
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
               />
 
               <p className="mt-2 text-right text-xs text-slate-500">
@@ -201,32 +173,23 @@ export default function TransferPage() {
             </h2>
 
             <div className="mt-6 space-y-4 text-sm">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-slate-500">
-                  Recipient
-                </span>
-
-                <span className="text-right font-medium text-slate-900">
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-500">Recipient</span>
+                <span className="text-right font-medium">
                   {recipient ? recipient.name : "Not selected"}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-slate-500">
-                  Account
-                </span>
-
-                <span className="font-medium text-slate-900">
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-500">Account</span>
+                <span className="font-medium">
                   {accountNumber || "—"}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-slate-500">
-                  Amount
-                </span>
-
-                <span className="font-semibold text-slate-950">
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-500">Amount</span>
+                <span className="font-semibold">
                   {amount
                     ? `£${Number(amount).toLocaleString("en-GB", {
                         minimumFractionDigits: 2,
@@ -236,12 +199,9 @@ export default function TransferPage() {
                 </span>
               </div>
 
-              <div className="flex items-start justify-between gap-4">
-                <span className="text-slate-500">
-                  Narration
-                </span>
-
-                <span className="max-w-[180px] text-right font-medium text-slate-900">
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-500">Narration</span>
+                <span className="max-w-[180px] text-right font-medium">
                   {narration || "—"}
                 </span>
               </div>

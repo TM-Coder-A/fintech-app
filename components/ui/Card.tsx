@@ -10,10 +10,10 @@ export default function Card({
   className = "",
 }: CardProps) {
   return (
-    <div
-      className={`rounded-2xl border border-gray-200 bg-white p-6 shadow-sm ${className}`}
+    <section
+      className={`rounded-3xl border border-slate-200 bg-white p-6 ${className}`}
     >
       {children}
-    </div>
+    </section>
   );
 }
