@@ -345,6 +345,29 @@ export async function POST(
       );
     }
 
+    if (!sender.wallet.transfersEnabled) {
+      await writeAuditLog({
+        request,
+        userId,
+        action: "TRANSFER_FAILURE",
+        success: false,
+        entityType: "WALLET",
+        entityId: sender.wallet.id,
+        metadata: {
+          reason: "transfers_disabled",
+        },
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Outgoing transfers are currently disabled for this wallet.",
+        },
+        { status: 403 }
+      );
+    }
+
     const personalDailyLimit =
       sender.wallet
         .personalDailyTransferLimit !==
@@ -522,12 +545,20 @@ export async function POST(
                 select: {
                   personalDailyTransferLimit:
                     true,
+                  transfersEnabled:
+                    true,
                 },
               });
 
             if (!currentWallet) {
               throw new Error(
                 "SENDER_WALLET_MISSING"
+              );
+            }
+
+            if (!currentWallet.transfersEnabled) {
+              throw new Error(
+                "TRANSFERS_DISABLED"
               );
             }
 

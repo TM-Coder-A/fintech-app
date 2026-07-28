@@ -96,12 +96,21 @@ export default function TransferLimits() {
               Daily transfer limits
             </p>
 
-            <Link
-              href="/transfer/settings"
-              className="text-xs font-semibold text-emerald-600"
-            >
-              Manage
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/transfer/security"
+                className="text-xs font-semibold text-slate-600"
+              >
+                Security
+              </Link>
+
+              <Link
+                href="/transfer/settings"
+                className="text-xs font-semibold text-emerald-600"
+              >
+                Manage limits
+              </Link>
+            </div>
           </div>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
