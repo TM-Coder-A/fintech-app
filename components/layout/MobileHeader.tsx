@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
-  Menu,
-  X,
-  LayoutDashboard,
-  Send,
   History,
+  LayoutDashboard,
+  Menu,
+  Send,
   User,
   Wallet,
+  X,
 } from "lucide-react";
+
+import LogoutButton from "./LogoutButton";
 
 const navItems = [
   {
@@ -81,6 +83,10 @@ export default function MobileHeader() {
               </Link>
             );
           })}
+
+          <div className="border-t border-slate-100 pt-2">
+            <LogoutButton mobile />
+          </div>
         </nav>
       )}
     </div>

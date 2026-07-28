@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  History,
   LayoutDashboard,
   Send,
-  History,
   User,
   Wallet,
 } from "lucide-react";
+
+import LogoutButton from "./LogoutButton";
 
 const navItems = [
   {
@@ -74,14 +76,18 @@ export default function Sidebar() {
           })}
         </nav>
 
-        <div className="mt-auto rounded-2xl bg-slate-950 p-4 text-white">
-          <p className="text-sm text-slate-400">
-            Available balance
-          </p>
+        <div className="mt-auto">
+          <div className="rounded-2xl bg-slate-950 p-4 text-white">
+            <p className="text-sm text-slate-400">
+              Secure session
+            </p>
 
-          <p className="mt-1 text-xl font-bold">
-            ₦12,480.50
-          </p>
+            <p className="mt-1 text-sm font-semibold">
+              Signed in
+            </p>
+          </div>
+
+          <LogoutButton />
         </div>
       </div>
     </aside>
