@@ -65,12 +65,44 @@ function getActivityDetails(
         icon: WalletCards,
       };
 
+    case "TRANSFER_FAILURE":
+      return {
+        title: "Transfer attempt failed",
+        description:
+          "A wallet transfer attempt was unsuccessful.",
+        icon: AlertTriangle,
+      };
+
+    case "TRANSFER_DUPLICATE":
+      return {
+        title: "Duplicate transfer request",
+        description:
+          "A repeated transfer request was safely prevented from moving money twice.",
+        icon: ShieldCheck,
+      };
+
     case "FUNDING_SUCCESS":
       return {
         title: "Wallet funded",
         description:
           "Funds were added to your wallet.",
         icon: WalletCards,
+      };
+
+    case "FUNDING_FAILURE":
+      return {
+        title: "Funding attempt failed",
+        description:
+          "A wallet funding attempt was unsuccessful.",
+        icon: AlertTriangle,
+      };
+
+    case "FUNDING_DUPLICATE":
+      return {
+        title: "Duplicate funding request",
+        description:
+          "A repeated funding request was safely prevented from crediting the wallet twice.",
+        icon: ShieldCheck,
       };
 
     default:
