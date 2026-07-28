@@ -2,12 +2,10 @@ import Link from "next/link";
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  Bell,
   CreditCard,
   History,
   Plus,
   Send,
-  User,
   Wallet,
 } from "lucide-react";
 
@@ -37,46 +35,7 @@ const transactions = [
 
 export default function DashboardPage() {
   return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link
-            href="/dashboard"
-            className="text-2xl font-bold text-emerald-600"
-          >
-            NovaPay
-          </Link>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="rounded-xl border border-slate-200 p-2.5 text-slate-600 hover:bg-slate-50"
-              aria-label="Notifications"
-            >
-              <Bell size={20} />
-            </button>
-
-            <Link
-              href="/profile"
-              className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50"
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                <User size={18} />
-              </div>
-
-              <div className="hidden text-left sm:block">
-                <p className="text-sm font-semibold text-slate-900">
-                  John Doe
-                </p>
-                <p className="text-xs text-slate-500">
-                  Personal account
-                </p>
-              </div>
-            </Link>
-          </div>
-        </div>
-      </header>
-
+    <main>
       <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="mb-8">
           <p className="text-sm text-slate-500">
@@ -149,54 +108,51 @@ export default function DashboardPage() {
             </p>
 
             <div className="mt-6 space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
-                    <ArrowDownLeft size={20} />
-                  </div>
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
+                  <ArrowDownLeft size={20} />
+                </div>
 
-                  <div>
-                    <p className="text-sm text-slate-500">
-                      Money in
-                    </p>
-                    <p className="font-semibold text-slate-950">
-                      £3,200.00
-                    </p>
-                  </div>
+                <div>
+                  <p className="text-sm text-slate-500">
+                    Money in
+                  </p>
+
+                  <p className="font-semibold text-slate-950">
+                    £3,200.00
+                  </p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-rose-50 p-3 text-rose-600">
-                    <ArrowUpRight size={20} />
-                  </div>
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-rose-50 p-3 text-rose-600">
+                  <ArrowUpRight size={20} />
+                </div>
 
-                  <div>
-                    <p className="text-sm text-slate-500">
-                      Money out
-                    </p>
-                    <p className="font-semibold text-slate-950">
-                      £1,465.50
-                    </p>
-                  </div>
+                <div>
+                  <p className="text-sm text-slate-500">
+                    Money out
+                  </p>
+
+                  <p className="font-semibold text-slate-950">
+                    £1,465.50
+                  </p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
-                    <CreditCard size={20} />
-                  </div>
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
+                  <CreditCard size={20} />
+                </div>
 
-                  <div>
-                    <p className="text-sm text-slate-500">
-                      Transactions
-                    </p>
-                    <p className="font-semibold text-slate-950">
-                      18
-                    </p>
-                  </div>
+                <div>
+                  <p className="text-sm text-slate-500">
+                    Transactions
+                  </p>
+
+                  <p className="font-semibold text-slate-950">
+                    18
+                  </p>
                 </div>
               </div>
             </div>

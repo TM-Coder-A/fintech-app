@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import Sidebar from "./Sidebar";
 import MobileHeader from "./MobileHeader";
+import MobileBottomNav from "./MobileBottomNav";
 
 interface AppShellProps {
   children: ReactNode;
@@ -16,7 +17,11 @@ export default function AppShell({
       <div className="min-w-0 flex-1">
         <MobileHeader />
 
-        {children}
+        <div className="pb-20 lg:pb-0">
+          {children}
+        </div>
+
+        <MobileBottomNav />
       </div>
     </div>
   );
