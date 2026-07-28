@@ -5,9 +5,17 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit";
 import { getAuthenticatedUserId } from "@/lib/auth/require-session";
+import { getNigeriaDayBounds } from "@/lib/day-boundaries";
 import { transferSchema } from "@/lib/validation/transfer";
 
-function isUniqueConstraintError(error: unknown) {
+import {
+  DAILY_TRANSFER_COUNT_LIMIT,
+  DAILY_TRANSFER_LIMIT,
+} from "@/lib/transfer-limits";
+
+function isUniqueConstraintError(
+  error: unknown
+) {
   return (
     typeof error === "object" &&
     error !== null &&
@@ -16,7 +24,9 @@ function isUniqueConstraintError(error: unknown) {
   );
 }
 
-export async function POST(request: Request) {
+export async function POST(
+  request: Request
+) {
   try {
     const userId =
       await getAuthenticatedUserId();
@@ -26,15 +36,18 @@ export async function POST(request: Request) {
         request,
         action: "TRANSFER_FAILURE",
         success: false,
+
         metadata: {
-          reason: "not_authenticated",
+          reason:
+            "not_authenticated",
         },
       });
 
       return NextResponse.json(
         {
           success: false,
-          message: "Not authenticated.",
+          message:
+            "Not authenticated.",
         },
         { status: 401 }
       );
@@ -43,13 +56,15 @@ export async function POST(request: Request) {
     let body: unknown;
 
     try {
-      body = await request.json();
+      body =
+        await request.json();
     } catch {
       await writeAuditLog({
         request,
         userId,
         action: "TRANSFER_FAILURE",
         success: false,
+
         metadata: {
           reason: "invalid_json",
         },
@@ -58,14 +73,17 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Invalid request.",
+          message:
+            "Invalid request.",
         },
         { status: 400 }
       );
     }
 
     const result =
-      transferSchema.safeParse(body);
+      transferSchema.safeParse(
+        body
+      );
 
     if (!result.success) {
       await writeAuditLog({
@@ -73,16 +91,20 @@ export async function POST(request: Request) {
         userId,
         action: "TRANSFER_FAILURE",
         success: false,
+
         metadata: {
-          reason: "validation_failed",
+          reason:
+            "validation_failed",
         },
       });
 
       return NextResponse.json(
         {
           success: false,
-          message: "Validation failed.",
-          errors: result.error.flatten(),
+          message:
+            "Validation failed.",
+          errors:
+            result.error.flatten(),
         },
         { status: 400 }
       );
@@ -100,6 +122,7 @@ export async function POST(request: Request) {
         where: {
           id: userId,
         },
+
         include: {
           wallet: true,
         },
@@ -111,8 +134,10 @@ export async function POST(request: Request) {
         userId,
         action: "TRANSFER_FAILURE",
         success: false,
+
         metadata: {
-          reason: "sender_wallet_missing",
+          reason:
+            "sender_wallet_missing",
           amount,
         },
       });
@@ -120,21 +145,29 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Sender wallet not found.",
+          message:
+            "Sender wallet not found.",
         },
         { status: 404 }
       );
     }
 
     /*
-     * Check idempotency only after we know
-     * which authenticated wallet owns the request.
+     * Idempotency comes before new limit
+     * checks.
+     *
+     * A legitimate retry of a transfer that
+     * already succeeded should return its
+     * original result rather than being
+     * rejected because the daily limit has
+     * since been reached.
      */
     const existingTransaction =
       await prisma.transaction.findUnique({
         where: {
           idempotencyKey,
         },
+
         include: {
           receiverWallet: {
             include: {
@@ -148,15 +181,18 @@ export async function POST(request: Request) {
       if (
         existingTransaction.senderWalletId !==
           sender.wallet.id ||
-        existingTransaction.type !== "TRANSFER"
+        existingTransaction.type !==
+          "TRANSFER"
       ) {
         await writeAuditLog({
           request,
           userId,
           action: "TRANSFER_FAILURE",
           success: false,
+
           metadata: {
-            reason: "idempotency_conflict",
+            reason:
+              "idempotency_conflict",
           },
         });
 
@@ -173,9 +209,15 @@ export async function POST(request: Request) {
       await writeAuditLog({
         request,
         userId,
-        action: "TRANSFER_DUPLICATE",
-        entityType: "TRANSACTION",
-        entityId: existingTransaction.id,
+        action:
+          "TRANSFER_DUPLICATE",
+
+        entityType:
+          "TRANSACTION",
+
+        entityId:
+          existingTransaction.id,
+
         metadata: {
           reference:
             existingTransaction.reference,
@@ -185,6 +227,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         duplicate: true,
+
         message:
           "Transfer was already processed.",
 
@@ -208,6 +251,7 @@ export async function POST(request: Request) {
         where: {
           accountNumber,
         },
+
         include: {
           user: true,
         },
@@ -219,9 +263,13 @@ export async function POST(request: Request) {
         userId,
         action: "TRANSFER_FAILURE",
         success: false,
+
         metadata: {
-          reason: "recipient_not_found",
+          reason:
+            "recipient_not_found",
+
           amount,
+
           recipientLast4:
             accountNumber.slice(-4),
         },
@@ -238,15 +286,18 @@ export async function POST(request: Request) {
     }
 
     if (
-      receiverWallet.id === sender.wallet.id
+      receiverWallet.id ===
+      sender.wallet.id
     ) {
       await writeAuditLog({
         request,
         userId,
         action: "TRANSFER_FAILURE",
         success: false,
+
         metadata: {
-          reason: "self_transfer",
+          reason:
+            "self_transfer",
           amount,
         },
       });
@@ -270,11 +321,17 @@ export async function POST(request: Request) {
         userId,
         action: "TRANSFER_FAILURE",
         success: false,
+
         metadata: {
-          reason: "currency_mismatch",
+          reason:
+            "currency_mismatch",
+
           amount,
+
           recipientLast4:
-            receiverWallet.accountNumber.slice(-4),
+            receiverWallet.accountNumber.slice(
+              -4
+            ),
         },
       });
 
@@ -288,6 +345,144 @@ export async function POST(request: Request) {
       );
     }
 
+    const { start, end } =
+      getNigeriaDayBounds();
+
+    /*
+     * Read today's successful outgoing
+     * transfers.
+     */
+    const [
+      dailyAmountResult,
+      dailyTransferCount,
+    ] = await Promise.all([
+      prisma.transaction.aggregate({
+        where: {
+          senderWalletId:
+            sender.wallet.id,
+
+          type: "TRANSFER",
+          status: "SUCCESSFUL",
+
+          createdAt: {
+            gte: start,
+            lt: end,
+          },
+        },
+
+        _sum: {
+          amount: true,
+        },
+      }),
+
+      prisma.transaction.count({
+        where: {
+          senderWalletId:
+            sender.wallet.id,
+
+          type: "TRANSFER",
+          status: "SUCCESSFUL",
+
+          createdAt: {
+            gte: start,
+            lt: end,
+          },
+        },
+      }),
+    ]);
+
+    const amountUsedToday =
+      Number(
+        dailyAmountResult._sum
+          .amount ?? 0
+      );
+
+    const projectedDailyTotal =
+      amountUsedToday + amount;
+
+    if (
+      projectedDailyTotal >
+      DAILY_TRANSFER_LIMIT
+    ) {
+      await writeAuditLog({
+        request,
+        userId,
+        action: "TRANSFER_FAILURE",
+        success: false,
+
+        metadata: {
+          reason:
+            "daily_amount_limit_exceeded",
+
+          amount,
+
+          usedToday:
+            amountUsedToday,
+
+          dailyLimit:
+            DAILY_TRANSFER_LIMIT,
+        },
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "This transfer would exceed your daily transfer limit.",
+
+          limit: {
+            daily:
+              DAILY_TRANSFER_LIMIT,
+
+            used:
+              amountUsedToday,
+
+            remaining:
+              Math.max(
+                0,
+                DAILY_TRANSFER_LIMIT -
+                  amountUsedToday
+              ),
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    if (
+      dailyTransferCount >=
+      DAILY_TRANSFER_COUNT_LIMIT
+    ) {
+      await writeAuditLog({
+        request,
+        userId,
+        action: "TRANSFER_FAILURE",
+        success: false,
+
+        metadata: {
+          reason:
+            "daily_count_limit_exceeded",
+
+          count:
+            dailyTransferCount,
+
+          countLimit:
+            DAILY_TRANSFER_COUNT_LIMIT,
+        },
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "You have reached your daily transfer count limit.",
+        },
+        { status: 400 }
+      );
+    }
+
     const reference =
       `TX-${randomUUID()}`;
 
@@ -295,10 +490,81 @@ export async function POST(request: Request) {
       const transaction =
         await prisma.$transaction(
           async (tx) => {
+            /*
+             * Re-check daily controls inside
+             * the financial transaction.
+             */
+            const [
+              lockedDailyAmount,
+              lockedDailyCount,
+            ] = await Promise.all([
+              tx.transaction.aggregate({
+                where: {
+                  senderWalletId:
+                    sender.wallet!.id,
+
+                  type: "TRANSFER",
+                  status:
+                    "SUCCESSFUL",
+
+                  createdAt: {
+                    gte: start,
+                    lt: end,
+                  },
+                },
+
+                _sum: {
+                  amount: true,
+                },
+              }),
+
+              tx.transaction.count({
+                where: {
+                  senderWalletId:
+                    sender.wallet!.id,
+
+                  type: "TRANSFER",
+                  status:
+                    "SUCCESSFUL",
+
+                  createdAt: {
+                    gte: start,
+                    lt: end,
+                  },
+                },
+              }),
+            ]);
+
+            const currentDailyAmount =
+              Number(
+                lockedDailyAmount
+                  ._sum.amount ?? 0
+              );
+
+            if (
+              currentDailyAmount +
+                amount >
+              DAILY_TRANSFER_LIMIT
+            ) {
+              throw new Error(
+                "DAILY_AMOUNT_LIMIT"
+              );
+            }
+
+            if (
+              lockedDailyCount >=
+              DAILY_TRANSFER_COUNT_LIMIT
+            ) {
+              throw new Error(
+                "DAILY_COUNT_LIMIT"
+              );
+            }
+
             const senderDebit =
               await tx.wallet.updateMany({
                 where: {
-                  id: sender.wallet!.id,
+                  id:
+                    sender.wallet!.id,
 
                   balance: {
                     gte: amount,
@@ -307,7 +573,8 @@ export async function POST(request: Request) {
 
                 data: {
                   balance: {
-                    decrement: amount,
+                    decrement:
+                      amount,
                   },
                 },
               });
@@ -322,12 +589,14 @@ export async function POST(request: Request) {
 
             await tx.wallet.update({
               where: {
-                id: receiverWallet.id,
+                id:
+                  receiverWallet.id,
               },
 
               data: {
                 balance: {
-                  increment: amount,
+                  increment:
+                    amount,
                 },
               },
             });
@@ -339,22 +608,34 @@ export async function POST(request: Request) {
                 amount,
                 narration,
                 type: "TRANSFER",
-                status: "SUCCESSFUL",
+                status:
+                  "SUCCESSFUL",
+
                 senderWalletId:
                   sender.wallet!.id,
+
                 receiverWalletId:
                   receiverWallet.id,
               },
             });
+          },
+          {
+            isolationLevel:
+              "Serializable",
           }
         );
 
       await writeAuditLog({
         request,
         userId,
-        action: "TRANSFER_SUCCESS",
-        entityType: "TRANSACTION",
-        entityId: transaction.id,
+        action:
+          "TRANSFER_SUCCESS",
+
+        entityType:
+          "TRANSACTION",
+
+        entityId:
+          transaction.id,
 
         metadata: {
           reference:
@@ -364,13 +645,16 @@ export async function POST(request: Request) {
             transaction.amount.toString(),
 
           recipientLast4:
-            receiverWallet.accountNumber.slice(-4),
+            receiverWallet.accountNumber.slice(
+              -4
+            ),
         },
       });
 
       return NextResponse.json({
         success: true,
         duplicate: false,
+
         message:
           "Transfer completed successfully.",
 
@@ -394,15 +678,20 @@ export async function POST(request: Request) {
         await writeAuditLog({
           request,
           userId,
-          action: "TRANSFER_FAILURE",
+          action:
+            "TRANSFER_FAILURE",
           success: false,
 
           metadata: {
             reason:
               "insufficient_balance",
+
             amount,
+
             recipientLast4:
-              receiverWallet.accountNumber.slice(-4),
+              receiverWallet.accountNumber.slice(
+                -4
+              ),
           },
         });
 
@@ -416,15 +705,67 @@ export async function POST(request: Request) {
         );
       }
 
-      /*
-       * Two identical requests can arrive
-       * almost simultaneously.
-       *
-       * The unique idempotency constraint
-       * guarantees only one transaction wins.
-       */
       if (
-        isUniqueConstraintError(error)
+        error instanceof Error &&
+        error.message ===
+          "DAILY_AMOUNT_LIMIT"
+      ) {
+        await writeAuditLog({
+          request,
+          userId,
+          action:
+            "TRANSFER_FAILURE",
+          success: false,
+
+          metadata: {
+            reason:
+              "daily_amount_limit_exceeded",
+            amount,
+          },
+        });
+
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "This transfer would exceed your daily transfer limit.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (
+        error instanceof Error &&
+        error.message ===
+          "DAILY_COUNT_LIMIT"
+      ) {
+        await writeAuditLog({
+          request,
+          userId,
+          action:
+            "TRANSFER_FAILURE",
+          success: false,
+
+          metadata: {
+            reason:
+              "daily_count_limit_exceeded",
+          },
+        });
+
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "You have reached your daily transfer count limit.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (
+        isUniqueConstraintError(
+          error
+        )
       ) {
         const existing =
           await prisma.transaction.findUnique({
@@ -445,16 +786,20 @@ export async function POST(request: Request) {
           existing &&
           existing.senderWalletId ===
             sender.wallet.id &&
-          existing.type === "TRANSFER"
+          existing.type ===
+            "TRANSFER"
         ) {
           await writeAuditLog({
             request,
             userId,
             action:
               "TRANSFER_DUPLICATE",
+
             entityType:
               "TRANSACTION",
-            entityId: existing.id,
+
+            entityId:
+              existing.id,
 
             metadata: {
               reference:
@@ -465,6 +810,7 @@ export async function POST(request: Request) {
           return NextResponse.json({
             success: true,
             duplicate: true,
+
             message:
               "Transfer was already processed.",
 
@@ -487,14 +833,14 @@ export async function POST(request: Request) {
       await writeAuditLog({
         request,
         userId,
-        action: "TRANSFER_FAILURE",
+        action:
+          "TRANSFER_FAILURE",
         success: false,
 
         metadata: {
-          reason: "processing_error",
+          reason:
+            "processing_error",
           amount,
-          recipientLast4:
-            receiverWallet.accountNumber.slice(-4),
         },
       });
 

@@ -16,6 +16,7 @@ import {
 
 import { transferSchema } from "@/lib/validation/transfer";
 import { formatCurrency } from "@/lib/format";
+import TransferLimits from "@/components/transfer/TransferLimits";
 
 type Recipient = {
   name: string;
@@ -274,6 +275,8 @@ export default function TransferPage() {
                 : "Transfer money securely to another wallet."}
             </p>
           </div>
+
+          <TransferLimits />
 
           {!reviewing ? (
             <form
