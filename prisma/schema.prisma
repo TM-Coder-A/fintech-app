@@ -20,6 +20,7 @@ model User {
 
   wallet        Wallet?
   beneficiaries Beneficiary[] @relation("BeneficiaryOwner")
+  sessions      Session[]
 }
 
 model Wallet {
@@ -73,6 +74,25 @@ enum TransactionStatus {
   SUCCESSFUL
   FAILED
   REVERSED
+}
+
+model Session {
+  id             String    @id @default(cuid())
+  userId         String
+  sessionVersion Int
+  ipAddress      String?
+  userAgent      String?
+  lastSeenAt     DateTime  @default(now())
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
 }
 
 model AuditLog {

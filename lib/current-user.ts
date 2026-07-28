@@ -1,25 +1,13 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import {
+  getAuthenticatedSession,
+} from "@/lib/auth/require-session";
 import { prisma } from "@/lib/prisma";
-import { verifySessionToken } from "@/lib/session";
-import { SESSION_COOKIE_NAME } from "@/lib/auth/session-cookie";
 
 export async function getCurrentUser() {
-  const cookieStore =
-    await cookies();
-
-  const token =
-    cookieStore.get(
-      SESSION_COOKIE_NAME
-    )?.value;
-
-  if (!token) {
-    redirect("/login");
-  }
-
   const session =
-    await verifySessionToken(token);
+    await getAuthenticatedSession();
 
   if (!session) {
     redirect("/login");
@@ -37,13 +25,6 @@ export async function getCurrentUser() {
     });
 
   if (!user) {
-    redirect("/login");
-  }
-
-  if (
-    user.sessionVersion !==
-    session.sessionVersion
-  ) {
     redirect("/login");
   }
 
