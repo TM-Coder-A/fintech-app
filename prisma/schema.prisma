@@ -70,3 +70,20 @@ enum TransactionStatus {
   FAILED
   REVERSED
 }
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  success    Boolean  @default(true)
+  entityType String?
+  entityId   String?
+  ipAddress  String?
+  userAgent  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}

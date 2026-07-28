@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createSessionToken } from "@/lib/session";
 import { loginSchema } from "@/lib/validation/login";
+import { writeAuditLog } from "@/lib/audit";
 
 import {
   checkLoginRateLimit,
@@ -29,15 +30,23 @@ export async function POST(
       loginSchema.safeParse(body);
 
     if (!result.success) {
+      await writeAuditLog({
+        request,
+        action: "LOGIN_FAILURE",
+        success: false,
+        metadata: {
+          reason:
+            "invalid_payload",
+        },
+      });
+
       return NextResponse.json(
         {
           success: false,
           message:
             "Invalid login details.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
@@ -46,13 +55,6 @@ export async function POST(
         .trim()
         .toLowerCase();
 
-    /*
-     * For our current development
-     * environment we rate-limit by email.
-     *
-     * Production will later use a durable
-     * rate limiter with multiple signals.
-     */
     const rateLimitKey =
       `login:${email}`;
 
@@ -62,6 +64,15 @@ export async function POST(
       );
 
     if (!rateLimit.allowed) {
+      await writeAuditLog({
+        request,
+        action: "LOGIN_FAILURE",
+        success: false,
+        metadata: {
+          reason: "rate_limited",
+        },
+      });
+
       return NextResponse.json(
         {
           success: false,
@@ -72,10 +83,10 @@ export async function POST(
         },
         {
           status: 429,
-
           headers: {
             "Retry-After": String(
-              rateLimit.retryAfterSeconds ??
+              rateLimit
+                .retryAfterSeconds ??
                 900
             ),
           },
@@ -99,15 +110,23 @@ export async function POST(
         rateLimitKey
       );
 
+      await writeAuditLog({
+        request,
+        action: "LOGIN_FAILURE",
+        success: false,
+        metadata: {
+          reason:
+            "invalid_credentials",
+        },
+      });
+
       return NextResponse.json(
         {
           success: false,
           message:
             "Invalid email or password.",
         },
-        {
-          status: 401,
-        }
+        { status: 401 }
       );
     }
 
@@ -122,15 +141,24 @@ export async function POST(
         rateLimitKey
       );
 
+      await writeAuditLog({
+        request,
+        userId: user.id,
+        action: "LOGIN_FAILURE",
+        success: false,
+        metadata: {
+          reason:
+            "invalid_credentials",
+        },
+      });
+
       return NextResponse.json(
         {
           success: false,
           message:
             "Invalid email or password.",
         },
-        {
-          status: 401,
-        }
+        { status: 401 }
       );
     }
 
@@ -155,9 +183,20 @@ export async function POST(
       getSessionCookieOptions()
     );
 
+    await writeAuditLog({
+      request,
+      userId: user.id,
+      action: "LOGIN_SUCCESS",
+      metadata: {
+        wallet:
+          user.wallet
+            ?.accountNumber ??
+          "none",
+      },
+    });
+
     return NextResponse.json({
       success: true,
-
       message:
         "Login successful.",
 
@@ -174,10 +213,8 @@ export async function POST(
               accountNumber:
                 user.wallet
                   .accountNumber,
-
               currency:
                 user.wallet.currency,
-
               balance:
                 user.wallet.balance.toString(),
             }
@@ -196,9 +233,7 @@ export async function POST(
         message:
           "Unable to log in.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit";
 import { getAuthenticatedUserId } from "@/lib/auth/require-session";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session-cookie";
 import { changePasswordSchema } from "@/lib/validation/change-password";
@@ -119,6 +120,14 @@ export async function POST(
           increment: 1,
         },
       },
+    });
+
+    await writeAuditLog({
+      request,
+      userId,
+      action: "PASSWORD_CHANGE",
+      entityType: "USER",
+      entityId: userId,
     });
 
     /*

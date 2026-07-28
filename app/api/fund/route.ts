@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit";
 import { getAuthenticatedUserId } from "@/lib/auth/require-session";
 import { fundingSchema } from "@/lib/validation/funding";
 
@@ -106,6 +107,21 @@ export async function POST(request: Request) {
         });
       }
     );
+
+    await writeAuditLog({
+      request,
+      userId,
+      action: "FUNDING_SUCCESS",
+      entityType: "TRANSACTION",
+      entityId: transaction.id,
+
+      metadata: {
+        reference:
+          transaction.reference,
+        amount:
+          transaction.amount.toString(),
+      },
+    });
 
     return NextResponse.json(
       {

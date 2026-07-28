@@ -1,51 +1,43 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-import { verifySessionToken } from "@/lib/session";
+import { writeAuditLog } from "@/lib/audit";
+import { getAuthenticatedUserId } from "@/lib/auth/require-session";
 import { profileSchema } from "@/lib/validation/profile";
-
-async function getSessionUserId() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session")?.value;
-
-  if (!token) {
-    return null;
-  }
-
-  const session = await verifySessionToken(token);
-
-  return session?.userId ?? null;
-}
 
 export async function GET() {
   try {
-    const userId = await getSessionUserId();
+    const userId =
+      await getAuthenticatedUserId();
 
     if (!userId) {
       return NextResponse.json(
         {
           success: false,
-          message: "Not authenticated.",
+          message:
+            "Not authenticated.",
         },
         { status: 401 }
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      include: {
-        wallet: true,
-      },
-    });
+    const user =
+      await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+
+        include: {
+          wallet: true,
+        },
+      });
 
     if (!user) {
       return NextResponse.json(
         {
           success: false,
-          message: "User not found.",
+          message:
+            "User not found.",
         },
         { status: 404 }
       );
@@ -56,16 +48,20 @@ export async function GET() {
 
       user: {
         id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        firstName:
+          user.firstName,
+        lastName:
+          user.lastName,
         email: user.email,
         phone: user.phone,
 
         wallet: user.wallet
           ? {
               accountNumber:
-                user.wallet.accountNumber,
-              currency: user.wallet.currency,
+                user.wallet
+                  .accountNumber,
+              currency:
+                user.wallet.currency,
               balance:
                 user.wallet.balance.toString(),
             }
@@ -81,7 +77,8 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        message: "Unable to load profile.",
+        message:
+          "Unable to load profile.",
       },
       { status: 500 }
     );
@@ -92,38 +89,64 @@ export async function PATCH(
   request: Request
 ) {
   try {
-    const userId = await getSessionUserId();
+    const userId =
+      await getAuthenticatedUserId();
 
     if (!userId) {
       return NextResponse.json(
         {
           success: false,
-          message: "Not authenticated.",
+          message:
+            "Not authenticated.",
         },
         { status: 401 }
       );
     }
 
-    const body = await request.json();
+    const body =
+      await request.json();
 
     const result =
-      profileSchema.safeParse(body);
+      profileSchema.safeParse(
+        body
+      );
 
     if (!result.success) {
       return NextResponse.json(
         {
           success: false,
-          message: "Validation failed.",
-          errors: result.error.flatten(),
+          message:
+            "Validation failed.",
+          errors:
+            result.error.flatten(),
         },
         { status: 400 }
+      );
+    }
+
+    const currentUser =
+      await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
+
+    if (!currentUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "User not found.",
+        },
+        { status: 404 }
       );
     }
 
     const existingPhone =
       await prisma.user.findFirst({
         where: {
-          phone: result.data.phone,
+          phone:
+            result.data.phone,
 
           NOT: {
             id: userId,
@@ -142,25 +165,77 @@ export async function PATCH(
       );
     }
 
-    const user = await prisma.user.update({
-      where: {
-        id: userId,
-      },
+    const changedFields: string[] =
+      [];
 
-      data: {
-        firstName: result.data.firstName,
-        lastName: result.data.lastName,
-        phone: result.data.phone,
+    if (
+      currentUser.firstName !==
+      result.data.firstName
+    ) {
+      changedFields.push(
+        "firstName"
+      );
+    }
+
+    if (
+      currentUser.lastName !==
+      result.data.lastName
+    ) {
+      changedFields.push(
+        "lastName"
+      );
+    }
+
+    if (
+      currentUser.phone !==
+      result.data.phone
+    ) {
+      changedFields.push(
+        "phone"
+      );
+    }
+
+    const user =
+      await prisma.user.update({
+        where: {
+          id: userId,
+        },
+
+        data: {
+          firstName:
+            result.data.firstName,
+          lastName:
+            result.data.lastName,
+          phone:
+            result.data.phone,
+        },
+      });
+
+    await writeAuditLog({
+      request,
+      userId,
+      action: "PROFILE_UPDATE",
+      entityType: "USER",
+      entityId: user.id,
+
+      metadata: {
+        changedFields:
+          changedFields.length
+            ? changedFields.join(",")
+            : "none",
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: "Profile updated successfully.",
+      message:
+        "Profile updated successfully.",
 
       user: {
-        firstName: user.firstName,
-        lastName: user.lastName,
+        firstName:
+          user.firstName,
+        lastName:
+          user.lastName,
         email: user.email,
         phone: user.phone,
       },
@@ -174,7 +249,8 @@ export async function PATCH(
     return NextResponse.json(
       {
         success: false,
-        message: "Unable to update profile.",
+        message:
+          "Unable to update profile.",
       },
       { status: 500 }
     );
