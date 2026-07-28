@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Send,
@@ -8,10 +8,22 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { transferSchema } from "@/lib/validation/transfer";
+import { formatCurrency } from "@/lib/format";
+
+type TransferField =
+  | "accountNumber"
+  | "amount"
+  | "narration";
+
+type TransferErrors = Partial<Record<TransferField, string>>;
+
 export default function TransferPage() {
   const [accountNumber, setAccountNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [narration, setNarration] = useState("");
+  const [errors, setErrors] = useState<TransferErrors>({});
+  const [successMessage, setSuccessMessage] = useState("");
 
   const recipient = useMemo(() => {
     if (accountNumber.length === 10) {
@@ -23,6 +35,70 @@ export default function TransferPage() {
 
     return null;
   }, [accountNumber]);
+
+  function clearFieldError(field: TransferField) {
+    setErrors((current) => {
+      if (!current[field]) {
+        return current;
+      }
+
+      const nextErrors = { ...current };
+      delete nextErrors[field];
+
+      return nextErrors;
+    });
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setErrors({});
+    setSuccessMessage("");
+
+    const values = {
+      accountNumber,
+      amount: Number(amount),
+      narration: narration || undefined,
+    };
+
+    const result = transferSchema.safeParse(values);
+
+    if (!result.success) {
+      const nextErrors: TransferErrors = {};
+
+      for (const issue of result.error.issues) {
+        const field = issue.path[0];
+
+        if (
+          typeof field === "string" &&
+          ["accountNumber", "amount", "narration"].includes(field)
+        ) {
+          const typedField = field as TransferField;
+
+          if (!nextErrors[typedField]) {
+            nextErrors[typedField] = issue.message;
+          }
+        }
+      }
+
+      setErrors(nextErrors);
+      return;
+    }
+
+    if (!recipient) {
+      setErrors({
+        accountNumber:
+          "Recipient could not be confirmed.",
+      });
+      return;
+    }
+
+    console.log("Validated transfer data:", result.data);
+
+    setSuccessMessage(
+      "Transfer details are valid. No money has been moved."
+    );
+  }
 
   return (
     <main>
@@ -44,7 +120,8 @@ export default function TransferPage() {
 
           <form
             className="space-y-6"
-            onSubmit={(event) => event.preventDefault()}
+            onSubmit={handleSubmit}
+            noValidate
           >
             <div>
               <label
@@ -56,17 +133,32 @@ export default function TransferPage() {
 
               <input
                 id="accountNumber"
+                name="accountNumber"
                 type="text"
                 inputMode="numeric"
                 value={accountNumber}
-                onChange={(event) =>
+                onChange={(event) => {
                   setAccountNumber(
-                    event.target.value.replace(/\D/g, "").slice(0, 10)
-                  )
-                }
+                    event.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, 10)
+                  );
+
+                  clearFieldError("accountNumber");
+                }}
                 placeholder="Enter 10-digit account number"
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                className={`w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:ring-4 ${
+                  errors.accountNumber
+                    ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
+                    : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
+                }`}
               />
+
+              {errors.accountNumber && (
+                <p className="mt-2 text-sm text-rose-600">
+                  {errors.accountNumber}
+                </p>
+              )}
             </div>
 
             {recipient && (
@@ -85,7 +177,10 @@ export default function TransferPage() {
                   </p>
                 </div>
 
-                <CheckCircle2 className="text-emerald-600" size={22} />
+                <CheckCircle2
+                  className="text-emerald-600"
+                  size={22}
+                />
               </div>
             )}
 
@@ -104,15 +199,29 @@ export default function TransferPage() {
 
                 <input
                   id="amount"
+                  name="amount"
                   type="number"
                   min="0"
                   step="0.01"
                   value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
+                  onChange={(event) => {
+                    setAmount(event.target.value);
+                    clearFieldError("amount");
+                  }}
                   placeholder="0.00"
-                  className="w-full rounded-xl border border-slate-300 bg-white py-3 pl-9 pr-4 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                  className={`w-full rounded-xl border bg-white py-3 pl-9 pr-4 outline-none transition focus:ring-4 ${
+                    errors.amount
+                      ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
+                      : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
+                  }`}
                 />
               </div>
+
+              {errors.amount && (
+                <p className="mt-2 text-sm text-rose-600">
+                  {errors.amount}
+                </p>
+              )}
             </div>
 
             <div>
@@ -125,23 +234,50 @@ export default function TransferPage() {
 
               <input
                 id="narration"
+                name="narration"
                 type="text"
                 maxLength={80}
                 value={narration}
-                onChange={(event) => setNarration(event.target.value)}
+                onChange={(event) => {
+                  setNarration(event.target.value);
+                  clearFieldError("narration");
+                }}
                 placeholder="What is this transfer for?"
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                className={`w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:ring-4 ${
+                  errors.narration
+                    ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
+                    : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
+                }`}
               />
 
-              <p className="mt-2 text-right text-xs text-slate-500">
-                {narration.length}/80
-              </p>
+              <div className="mt-2 flex justify-between gap-4">
+                <div>
+                  {errors.narration && (
+                    <p className="text-sm text-rose-600">
+                      {errors.narration}
+                    </p>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-500">
+                  {narration.length}/80
+                </p>
+              </div>
             </div>
+
+            {successMessage && (
+              <div className="flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+                <CheckCircle2
+                  size={20}
+                  className="shrink-0"
+                />
+                <p>{successMessage}</p>
+              </div>
+            )}
 
             <button
               type="submit"
-              disabled={!recipient || !amount || Number(amount) <= 0}
-              className="w-full rounded-xl bg-emerald-600 px-5 py-3.5 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="w-full rounded-xl bg-emerald-600 px-5 py-3.5 font-semibold text-white transition hover:bg-emerald-700"
             >
               Review Transfer
             </button>
@@ -161,7 +297,7 @@ export default function TransferPage() {
                 </p>
 
                 <p className="text-xl font-bold">
-                  £12,480.50
+                  {formatCurrency(12480.5)}
                 </p>
               </div>
             </div>
@@ -174,33 +310,44 @@ export default function TransferPage() {
 
             <div className="mt-6 space-y-4 text-sm">
               <div className="flex justify-between gap-4">
-                <span className="text-slate-500">Recipient</span>
+                <span className="text-slate-500">
+                  Recipient
+                </span>
+
                 <span className="text-right font-medium">
-                  {recipient ? recipient.name : "Not selected"}
+                  {recipient
+                    ? recipient.name
+                    : "Not selected"}
                 </span>
               </div>
 
               <div className="flex justify-between gap-4">
-                <span className="text-slate-500">Account</span>
+                <span className="text-slate-500">
+                  Account
+                </span>
+
                 <span className="font-medium">
                   {accountNumber || "—"}
                 </span>
               </div>
 
               <div className="flex justify-between gap-4">
-                <span className="text-slate-500">Amount</span>
+                <span className="text-slate-500">
+                  Amount
+                </span>
+
                 <span className="font-semibold">
-                  {amount
-                    ? `£${Number(amount).toLocaleString("en-GB", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}`
-                    : "£0.00"}
+                  {amount && Number(amount) > 0
+                    ? formatCurrency(Number(amount))
+                    : formatCurrency(0)}
                 </span>
               </div>
 
               <div className="flex justify-between gap-4">
-                <span className="text-slate-500">Narration</span>
+                <span className="text-slate-500">
+                  Narration
+                </span>
+
                 <span className="max-w-[180px] text-right font-medium">
                   {narration || "—"}
                 </span>

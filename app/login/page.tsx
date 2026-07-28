@@ -1,17 +1,83 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { FormEvent, useState } from "react";
 import {
   ArrowLeft,
+  CheckCircle2,
   Eye,
   EyeOff,
   LockKeyhole,
   ShieldCheck,
 } from "lucide-react";
 
+import { loginSchema } from "@/lib/validation/login";
+
+type LoginField = "email" | "password";
+
+type LoginErrors = Partial<Record<LoginField, string>>;
+
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<LoginErrors>({});
+  const [successMessage, setSuccessMessage] = useState("");
+
+  function clearFieldError(field: LoginField) {
+    setErrors((current) => {
+      if (!current[field]) {
+        return current;
+      }
+
+      const nextErrors = { ...current };
+      delete nextErrors[field];
+
+      return nextErrors;
+    });
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setErrors({});
+    setSuccessMessage("");
+
+    const formData = new FormData(event.currentTarget);
+
+    const values = {
+      email: String(formData.get("email") ?? ""),
+      password: String(formData.get("password") ?? ""),
+    };
+
+    const result = loginSchema.safeParse(values);
+
+    if (!result.success) {
+      const nextErrors: LoginErrors = {};
+
+      for (const issue of result.error.issues) {
+        const field = issue.path[0];
+
+        if (
+          typeof field === "string" &&
+          ["email", "password"].includes(field)
+        ) {
+          const typedField = field as LoginField;
+
+          if (!nextErrors[typedField]) {
+            nextErrors[typedField] = issue.message;
+          }
+        }
+      }
+
+      setErrors(nextErrors);
+      return;
+    }
+
+    console.log("Validated login data:", result.data);
+
+    setSuccessMessage(
+      "Login details are valid. Authentication will be connected later."
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -45,7 +111,7 @@ export default function LoginPage() {
                 className="text-emerald-400"
                 size={20}
               />
-              Secure access to your NovaPay account
+              Secure access to your account
             </div>
           </div>
 
@@ -83,7 +149,8 @@ export default function LoginPage() {
 
             <form
               className="mt-8 space-y-5"
-              onSubmit={(event) => event.preventDefault()}
+              onSubmit={handleSubmit}
+              noValidate
             >
               <div>
                 <label
@@ -99,9 +166,19 @@ export default function LoginPage() {
                   type="email"
                   autoComplete="email"
                   placeholder="john@example.com"
-                  required
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                  onChange={() => clearFieldError("email")}
+                  className={`w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:ring-4 ${
+                    errors.email
+                      ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
+                      : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
+                  }`}
                 />
+
+                {errors.email && (
+                  <p className="mt-2 text-sm text-rose-600">
+                    {errors.email}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -128,8 +205,12 @@ export default function LoginPage() {
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     placeholder="Enter your password"
-                    required
-                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-12 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                    onChange={() => clearFieldError("password")}
+                    className={`w-full rounded-xl border bg-white px-4 py-3 pr-12 outline-none transition focus:ring-4 ${
+                      errors.password
+                        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
+                        : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
+                    }`}
                   />
 
                   <button
@@ -137,9 +218,11 @@ export default function LoginPage() {
                     onClick={() =>
                       setShowPassword((current) => !current)
                     }
-                    className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-slate-500 hover:text-slate-950"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
                     aria-label={
-                      showPassword ? "Hide password" : "Show password"
+                      showPassword
+                        ? "Hide password"
+                        : "Show password"
                     }
                   >
                     {showPassword ? (
@@ -149,6 +232,12 @@ export default function LoginPage() {
                     )}
                   </button>
                 </div>
+
+                {errors.password && (
+                  <p className="mt-2 text-sm text-rose-600">
+                    {errors.password}
+                  </p>
+                )}
               </div>
 
               <label className="flex items-center gap-3">
@@ -163,9 +252,16 @@ export default function LoginPage() {
                 </span>
               </label>
 
+              {successMessage && (
+                <div className="flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+                  <CheckCircle2 size={20} className="shrink-0" />
+                  <p>{successMessage}</p>
+                </div>
+              )}
+
               <button
                 type="submit"
-                className="w-full rounded-xl bg-emerald-600 px-5 py-3.5 font-semibold text-white transition hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-500/20"
+                className="w-full rounded-xl bg-emerald-600 px-5 py-3.5 font-semibold text-white transition hover:bg-emerald-700"
               >
                 Sign In
               </button>
