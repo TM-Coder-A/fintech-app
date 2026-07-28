@@ -6,6 +6,8 @@ import {
   History,
   Plus,
   Send,
+  TrendingDown,
+  TrendingUp,
   Wallet,
 } from "lucide-react";
 
@@ -17,40 +19,118 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   const wallet = user.wallet;
 
-  const balance = wallet
-    ? Number(wallet.balance)
-    : 0;
+  if (!wallet) {
+    return null;
+  }
 
-  const recentTransactions = wallet
-    ? await prisma.transaction.findMany({
-        where: {
-          OR: [
-            {
-              senderWalletId: wallet.id,
-            },
-            {
-              receiverWalletId: wallet.id,
-            },
-          ],
-        },
-        include: {
-          senderWallet: {
-            include: {
-              user: true,
-            },
+  const balance = Number(wallet.balance);
+
+  const now = new Date();
+
+  const monthStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1
+  );
+
+  const [
+    recentTransactions,
+    transactionCount,
+    moneyInResult,
+    moneyOutResult,
+  ] = await Promise.all([
+    prisma.transaction.findMany({
+      where: {
+        OR: [
+          {
+            senderWalletId: wallet.id,
           },
-          receiverWallet: {
-            include: {
-              user: true,
-            },
+          {
+            receiverWalletId: wallet.id,
+          },
+        ],
+      },
+
+      include: {
+        senderWallet: {
+          include: {
+            user: true,
           },
         },
-        orderBy: {
-          createdAt: "desc",
+
+        receiverWallet: {
+          include: {
+            user: true,
+          },
         },
-        take: 5,
-      })
-    : [];
+      },
+
+      orderBy: {
+        createdAt: "desc",
+      },
+
+      take: 5,
+    }),
+
+    prisma.transaction.count({
+      where: {
+        OR: [
+          {
+            senderWalletId: wallet.id,
+          },
+          {
+            receiverWalletId: wallet.id,
+          },
+        ],
+
+        status: "SUCCESSFUL",
+
+        createdAt: {
+          gte: monthStart,
+        },
+      },
+    }),
+
+    prisma.transaction.aggregate({
+      where: {
+        receiverWalletId: wallet.id,
+
+        status: "SUCCESSFUL",
+
+        createdAt: {
+          gte: monthStart,
+        },
+      },
+
+      _sum: {
+        amount: true,
+      },
+    }),
+
+    prisma.transaction.aggregate({
+      where: {
+        senderWalletId: wallet.id,
+
+        status: "SUCCESSFUL",
+
+        createdAt: {
+          gte: monthStart,
+        },
+      },
+
+      _sum: {
+        amount: true,
+      },
+    }),
+  ]);
+
+  const moneyIn = Number(
+    moneyInResult._sum.amount ?? 0
+  );
+
+  const moneyOut = Number(
+    moneyOutResult._sum.amount ?? 0
+  );
 
   return (
     <main>
@@ -89,7 +169,7 @@ export default async function DashboardPage() {
               </p>
 
               <p className="mt-1 font-mono text-lg tracking-wider">
-                {wallet?.accountNumber ?? "Not available"}
+                {wallet.accountNumber}
               </p>
             </div>
 
@@ -157,13 +237,87 @@ export default async function DashboardPage() {
                   </p>
 
                   <p className="font-semibold text-slate-950">
-                    {wallet?.currency ?? "NGN"}
+                    {wallet.currency}
                   </p>
                 </div>
               </div>
             </div>
           </section>
         </div>
+
+        <section className="mt-8">
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold text-slate-950">
+              This month
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Your successful wallet activity for the current month.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6">
+              <div className="flex items-center justify-between">
+                <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
+                  <TrendingUp size={22} />
+                </div>
+
+                <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Money in
+                </span>
+              </div>
+
+              <p className="mt-5 text-2xl font-bold text-slate-950">
+                {formatCurrency(moneyIn)}
+              </p>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Incoming transfers and funding
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6">
+              <div className="flex items-center justify-between">
+                <div className="rounded-xl bg-rose-50 p-3 text-rose-600">
+                  <TrendingDown size={22} />
+                </div>
+
+                <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Money out
+                </span>
+              </div>
+
+              <p className="mt-5 text-2xl font-bold text-slate-950">
+                {formatCurrency(moneyOut)}
+              </p>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Successful outgoing transfers
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6">
+              <div className="flex items-center justify-between">
+                <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
+                  <History size={22} />
+                </div>
+
+                <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Transactions
+                </span>
+              </div>
+
+              <p className="mt-5 text-2xl font-bold text-slate-950">
+                {transactionCount}
+              </p>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Successful transactions this month
+              </p>
+            </div>
+          </div>
+        </section>
 
         <section className="mt-8 rounded-3xl border border-slate-200 bg-white">
           <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
@@ -192,19 +346,46 @@ export default async function DashboardPage() {
               </p>
 
               <p className="mt-2 text-sm text-slate-500">
-                Your completed transfers will appear here.
+                Your wallet activity will appear here.
               </p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
               {recentTransactions.map((transaction) => {
+                const isFunding =
+                  transaction.type === "FUNDING";
+
                 const incoming =
-                  transaction.receiverWalletId === wallet?.id;
+                  transaction.receiverWalletId ===
+                  wallet.id;
 
                 const counterparty =
                   incoming
                     ? transaction.senderWallet?.user
                     : transaction.receiverWallet?.user;
+
+                let title = "";
+                let subtitle = "";
+
+                if (isFunding) {
+                  title = "Wallet funded";
+
+                  subtitle =
+                    transaction.narration ??
+                    "Wallet funding";
+                } else if (incoming) {
+                  title = "Money received";
+
+                  subtitle = counterparty
+                    ? `From ${counterparty.firstName} ${counterparty.lastName}`
+                    : "Wallet transfer";
+                } else {
+                  title = "Money sent";
+
+                  subtitle = counterparty
+                    ? `To ${counterparty.firstName} ${counterparty.lastName}`
+                    : "Wallet transfer";
+                }
 
                 return (
                   <Link
@@ -212,49 +393,47 @@ export default async function DashboardPage() {
                     href={`/transactions/${transaction.id}`}
                     className="flex items-center justify-between gap-4 px-6 py-5 transition hover:bg-slate-50"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex min-w-0 items-center gap-4">
                       <div
                         className={
-                          incoming
-                            ? "rounded-xl bg-emerald-50 p-3 text-emerald-600"
-                            : "rounded-xl bg-rose-50 p-3 text-rose-600"
+                          isFunding || incoming
+                            ? "shrink-0 rounded-xl bg-emerald-50 p-3 text-emerald-600"
+                            : "shrink-0 rounded-xl bg-rose-50 p-3 text-rose-600"
                         }
                       >
-                        {incoming ? (
+                        {isFunding ? (
+                          <Plus size={20} />
+                        ) : incoming ? (
                           <ArrowDownLeft size={20} />
                         ) : (
                           <ArrowUpRight size={20} />
                         )}
                       </div>
 
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-semibold text-slate-950">
-                          {incoming
-                            ? "Money received"
-                            : "Money sent"}
+                          {title}
                         </p>
 
-                        <p className="mt-1 text-sm text-slate-500">
-                          {counterparty
-                            ? `${incoming ? "From" : "To"} ${counterparty.firstName} ${counterparty.lastName}`
-                            : "Wallet transfer"}
+                        <p className="mt-1 truncate text-sm text-slate-500">
+                          {subtitle}
                         </p>
 
-                        <p className="mt-1 text-xs text-slate-400">
+                        <p className="mt-1 truncate text-xs text-slate-400">
                           {transaction.reference}
                         </p>
                       </div>
                     </div>
 
-                    <div className="text-right">
+                    <div className="shrink-0 text-right">
                       <p
                         className={
-                          incoming
+                          isFunding || incoming
                             ? "font-semibold text-emerald-600"
                             : "font-semibold text-slate-950"
                         }
                       >
-                        {incoming ? "+" : "-"}
+                        {isFunding || incoming ? "+" : "-"}
                         {formatCurrency(
                           Number(transaction.amount)
                         )}
