@@ -1,10 +1,12 @@
 import { cookies } from "next/headers";
 
+import { prisma } from "@/lib/prisma";
 import { verifySessionToken } from "@/lib/session";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session-cookie";
 
 export async function getAuthenticatedUserId() {
-  const cookieStore = await cookies();
+  const cookieStore =
+    await cookies();
 
   const token =
     cookieStore.get(
@@ -18,9 +20,32 @@ export async function getAuthenticatedUserId() {
   const session =
     await verifySessionToken(token);
 
-  if (!session?.userId) {
+  if (!session) {
     return null;
   }
 
-  return session.userId;
+  const user =
+    await prisma.user.findUnique({
+      where: {
+        id: session.userId,
+      },
+
+      select: {
+        id: true,
+        sessionVersion: true,
+      },
+    });
+
+  if (!user) {
+    return null;
+  }
+
+  if (
+    user.sessionVersion !==
+    session.sessionVersion
+  ) {
+    return null;
+  }
+
+  return user.id;
 }

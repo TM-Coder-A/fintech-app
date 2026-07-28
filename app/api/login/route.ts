@@ -142,6 +142,8 @@ export async function POST(
       await createSessionToken({
         userId: user.id,
         email: user.email,
+        sessionVersion:
+          user.sessionVersion,
       });
 
     const cookieStore =

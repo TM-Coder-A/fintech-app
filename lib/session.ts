@@ -1,48 +1,60 @@
-import { SignJWT, jwtVerify } from "jose";
+import {
+  SignJWT,
+  jwtVerify,
+} from "jose";
 
-const secret = process.env.SESSION_SECRET;
+const sessionSecret =
+  process.env.SESSION_SECRET;
 
-if (!secret) {
-  throw new Error("SESSION_SECRET is not configured.");
+if (!sessionSecret) {
+  throw new Error(
+    "SESSION_SECRET is not configured."
+  );
 }
 
-const encodedSecret = new TextEncoder().encode(secret);
+const secret = new TextEncoder().encode(
+  sessionSecret
+);
 
-export interface SessionPayload {
+type CreateSessionInput = {
   userId: string;
   email: string;
-}
+  sessionVersion: number;
+};
 
-export async function createSessionToken(
-  payload: SessionPayload
-) {
+export async function createSessionToken({
+  userId,
+  email,
+  sessionVersion,
+}: CreateSessionInput) {
   return new SignJWT({
-    email: payload.email,
+    email,
+    sessionVersion,
   })
     .setProtectedHeader({
       alg: "HS256",
     })
-    .setSubject(payload.userId)
+    .setSubject(userId)
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(encodedSecret);
+    .sign(secret);
 }
 
 export async function verifySessionToken(
   token: string
-): Promise<SessionPayload | null> {
+) {
   try {
-    const { payload } = await jwtVerify(
-      token,
-      encodedSecret,
-      {
-        algorithms: ["HS256"],
-      }
-    );
+    const { payload } =
+      await jwtVerify(
+        token,
+        secret
+      );
 
     if (
-      typeof payload.sub !== "string" ||
-      typeof payload.email !== "string"
+      !payload.sub ||
+      typeof payload.email !== "string" ||
+      typeof payload.sessionVersion !==
+        "number"
     ) {
       return null;
     }
@@ -50,6 +62,8 @@ export async function verifySessionToken(
     return {
       userId: payload.sub,
       email: payload.email,
+      sessionVersion:
+        payload.sessionVersion,
     };
   } catch {
     return null;

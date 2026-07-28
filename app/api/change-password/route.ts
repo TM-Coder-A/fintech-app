@@ -114,6 +114,10 @@ export async function POST(
 
       data: {
         passwordHash,
+
+        sessionVersion: {
+          increment: 1,
+        },
       },
     });
 
