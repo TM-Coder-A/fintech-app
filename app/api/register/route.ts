@@ -94,7 +94,7 @@ export async function POST(request: Request) {
         wallet: {
           create: {
             accountNumber,
-            currency: "GBP",
+            currency: "NGN",
             balance: 0,
           },
         },

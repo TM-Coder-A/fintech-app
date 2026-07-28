@@ -229,7 +229,7 @@ export default function TransferPage() {
 
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 font-semibold text-slate-500">
-                  £
+                  ₦
                 </span>
 
                 <input

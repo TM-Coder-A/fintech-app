@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+
 import {
-  ArrowDownLeft,
-  ArrowUpRight,
   CreditCard,
   History,
   Plus,
@@ -9,31 +10,43 @@ import {
   Wallet,
 } from "lucide-react";
 
-const transactions = [
-  {
-    id: 1,
-    title: "Payment received",
-    subtitle: "From Daniel James",
-    amount: "+£450.00",
-    type: "credit",
-  },
-  {
-    id: 2,
-    title: "Transfer sent",
-    subtitle: "To Sarah Michael",
-    amount: "-£120.00",
-    type: "debit",
-  },
-  {
-    id: 3,
-    title: "Wallet funding",
-    subtitle: "Bank card",
-    amount: "+£1,000.00",
-    type: "credit",
-  },
-];
+import { prisma } from "@/lib/prisma";
+import { verifySessionToken } from "@/lib/session";
+import { formatCurrency } from "@/lib/format";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session")?.value;
+
+  if (!token) {
+    redirect("/login");
+  }
+
+  const session = await verifySessionToken(token);
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: {
+      id: session.userId,
+    },
+    include: {
+      wallet: true,
+    },
+  });
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const wallet = user.wallet;
+
+  const balance = wallet
+    ? Number(wallet.balance)
+    : 0;
+
   return (
     <main>
       <div className="mx-auto max-w-7xl px-6 py-8">
@@ -43,7 +56,7 @@ export default function DashboardPage() {
           </p>
 
           <h1 className="mt-1 text-3xl font-bold text-slate-950">
-            John Doe
+            {user.firstName} {user.lastName}
           </h1>
         </div>
 
@@ -56,7 +69,7 @@ export default function DashboardPage() {
                 </p>
 
                 <h2 className="mt-2 text-4xl font-bold">
-                  £12,480.50
+                  {formatCurrency(balance)}
                 </h2>
               </div>
 
@@ -71,7 +84,7 @@ export default function DashboardPage() {
               </p>
 
               <p className="mt-1 font-mono text-lg tracking-wider">
-                1058 4729 31
+                {wallet?.accountNumber ?? "Not available"}
               </p>
             </div>
 
@@ -104,40 +117,28 @@ export default function DashboardPage() {
 
           <section className="rounded-3xl border border-slate-200 bg-white p-7">
             <p className="text-sm font-medium text-slate-500">
-              This month
+              Account overview
             </p>
 
             <div className="mt-6 space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
-                  <ArrowDownLeft size={20} />
-                </div>
+              <div>
+                <p className="text-sm text-slate-500">
+                  Account holder
+                </p>
 
-                <div>
-                  <p className="text-sm text-slate-500">
-                    Money in
-                  </p>
-
-                  <p className="font-semibold text-slate-950">
-                    £3,200.00
-                  </p>
-                </div>
+                <p className="mt-1 font-semibold text-slate-950">
+                  {user.firstName} {user.lastName}
+                </p>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-rose-50 p-3 text-rose-600">
-                  <ArrowUpRight size={20} />
-                </div>
+              <div>
+                <p className="text-sm text-slate-500">
+                  Email
+                </p>
 
-                <div>
-                  <p className="text-sm text-slate-500">
-                    Money out
-                  </p>
-
-                  <p className="font-semibold text-slate-950">
-                    £1,465.50
-                  </p>
-                </div>
+                <p className="mt-1 break-all font-semibold text-slate-950">
+                  {user.email}
+                </p>
               </div>
 
               <div className="flex items-center gap-3">
@@ -147,11 +148,11 @@ export default function DashboardPage() {
 
                 <div>
                   <p className="text-sm text-slate-500">
-                    Transactions
+                    Currency
                   </p>
 
                   <p className="font-semibold text-slate-950">
-                    18
+                    {wallet?.currency ?? "NGN"}
                   </p>
                 </div>
               </div>
@@ -179,49 +180,14 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="divide-y divide-slate-100">
-            {transactions.map((transaction) => (
-              <div
-                key={transaction.id}
-                className="flex items-center justify-between px-6 py-5"
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className={
-                      transaction.type === "credit"
-                        ? "rounded-xl bg-emerald-50 p-3 text-emerald-600"
-                        : "rounded-xl bg-rose-50 p-3 text-rose-600"
-                    }
-                  >
-                    {transaction.type === "credit" ? (
-                      <ArrowDownLeft size={20} />
-                    ) : (
-                      <ArrowUpRight size={20} />
-                    )}
-                  </div>
+          <div className="px-6 py-12 text-center">
+            <p className="font-medium text-slate-900">
+              No transactions yet
+            </p>
 
-                  <div>
-                    <p className="font-medium text-slate-950">
-                      {transaction.title}
-                    </p>
-
-                    <p className="mt-1 text-sm text-slate-500">
-                      {transaction.subtitle}
-                    </p>
-                  </div>
-                </div>
-
-                <p
-                  className={
-                    transaction.type === "credit"
-                      ? "font-semibold text-emerald-600"
-                      : "font-semibold text-slate-950"
-                  }
-                >
-                  {transaction.amount}
-                </p>
-              </div>
-            ))}
+            <p className="mt-2 text-sm text-slate-500">
+              Your real transaction activity will appear here.
+            </p>
           </div>
         </section>
       </div>

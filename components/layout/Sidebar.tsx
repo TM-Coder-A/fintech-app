@@ -80,7 +80,7 @@ export default function Sidebar() {
           </p>
 
           <p className="mt-1 text-xl font-bold">
-            £12,480.50
+            ₦12,480.50
           </p>
         </div>
       </div>

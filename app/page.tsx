@@ -70,7 +70,7 @@ export default function Home() {
           <p className="text-sm text-slate-400">Available Balance</p>
 
           <h2 className="mt-2 text-4xl font-bold">
-            £12,480.50
+            ₦12,480.50
           </h2>
 
           <div className="mt-8 grid grid-cols-2 gap-4">
@@ -93,14 +93,14 @@ export default function Home() {
             <div className="mt-4 flex items-center justify-between">
               <span>Payment received</span>
               <span className="font-semibold">
-                +£450.00
+                +₦450.00
               </span>
             </div>
 
             <div className="mt-4 flex items-center justify-between">
               <span>Transfer sent</span>
               <span className="font-semibold">
-                -£120.00
+                -₦120.00
               </span>
             </div>
           </div>

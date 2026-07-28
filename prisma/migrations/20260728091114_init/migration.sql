@@ -22,7 +22,7 @@ CREATE TABLE "User" (
 CREATE TABLE "Wallet" (
     "id" TEXT NOT NULL,
     "accountNumber" TEXT NOT NULL,
-    "currency" TEXT NOT NULL DEFAULT 'GBP',
+    "currency" TEXT NOT NULL DEFAULT 'NGN',
     "balance" DECIMAL(65,30) NOT NULL DEFAULT 0,
     "userId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
