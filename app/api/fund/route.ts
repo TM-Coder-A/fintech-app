@@ -1,34 +1,21 @@
 import { randomUUID } from "crypto";
 
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-import { verifySessionToken } from "@/lib/session";
+import { getAuthenticatedUserId } from "@/lib/auth/require-session";
 import { fundingSchema } from "@/lib/validation/funding";
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("session")?.value;
+    const userId =
+      await getAuthenticatedUserId();
 
-    if (!token) {
+    if (!userId) {
       return NextResponse.json(
         {
           success: false,
           message: "Not authenticated.",
-        },
-        { status: 401 }
-      );
-    }
-
-    const session = await verifySessionToken(token);
-
-    if (!session) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid or expired session.",
         },
         { status: 401 }
       );
@@ -74,7 +61,7 @@ export async function POST(request: Request) {
 
     const user = await prisma.user.findUnique({
       where: {
-        id: session.userId,
+        id: userId,
       },
       include: {
         wallet: true,

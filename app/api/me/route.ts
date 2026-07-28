@@ -1,20 +1,19 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-import { verifySessionToken } from "@/lib/session";
+import { getAuthenticatedUserId } from "@/lib/auth/require-session";
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const token =
-      cookieStore.get("session")?.value;
+    const userId =
+      await getAuthenticatedUserId();
 
-    if (!token) {
+    if (!userId) {
       return NextResponse.json(
         {
           success: false,
-          message: "Not authenticated.",
+          message:
+            "Not authenticated.",
         },
         {
           status: 401,
@@ -22,35 +21,23 @@ export async function GET() {
       );
     }
 
-    const session =
-      await verifySessionToken(token);
-
-    if (!session) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid or expired session.",
+    const user =
+      await prisma.user.findUnique({
+        where: {
+          id: userId,
         },
-        {
-          status: 401,
-        }
-      );
-    }
 
-    const user = await prisma.user.findUnique({
-      where: {
-        id: session.userId,
-      },
-      include: {
-        wallet: true,
-      },
-    });
+        include: {
+          wallet: true,
+        },
+      });
 
     if (!user) {
       return NextResponse.json(
         {
           success: false,
-          message: "User not found.",
+          message:
+            "User not found.",
         },
         {
           status: 404,
@@ -60,30 +47,42 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
+
       user: {
         id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        firstName:
+          user.firstName,
+        lastName:
+          user.lastName,
         email: user.email,
         phone: user.phone,
+
         wallet: user.wallet
           ? {
               accountNumber:
-                user.wallet.accountNumber,
-              currency: user.wallet.currency,
+                user.wallet
+                  .accountNumber,
+
               balance:
                 user.wallet.balance.toString(),
+
+              currency:
+                user.wallet.currency,
             }
           : null,
       },
     });
   } catch (error) {
-    console.error("Session lookup error:", error);
+    console.error(
+      "Current user error:",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
-        message: "Unable to read session.",
+        message:
+          "Unable to load account.",
       },
       {
         status: 500,

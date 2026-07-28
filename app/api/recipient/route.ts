@@ -1,83 +1,99 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-import { verifySessionToken } from "@/lib/session";
+import { getAuthenticatedUserId } from "@/lib/auth/require-session";
 
 export async function GET(request: Request) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session")?.value;
+  try {
+    const userId =
+      await getAuthenticatedUserId();
 
-  if (!token) {
+    if (!userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Not authenticated.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const { searchParams } =
+      new URL(request.url);
+
+    const accountNumber =
+      searchParams
+        .get("accountNumber")
+        ?.trim() ?? "";
+
+    if (!/^\d{10}$/.test(accountNumber)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Account number must be exactly 10 digits.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const wallet =
+      await prisma.wallet.findUnique({
+        where: {
+          accountNumber,
+        },
+
+        include: {
+          user: true,
+        },
+      });
+
+    if (!wallet) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Recipient account not found.",
+        },
+        { status: 404 }
+      );
+    }
+
+    if (wallet.userId === userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "You cannot transfer money to your own wallet.",
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+
+      recipient: {
+        name:
+          `${wallet.user.firstName} ${wallet.user.lastName}`,
+
+        accountNumber:
+          wallet.accountNumber,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Recipient lookup error:",
+      error
+    );
+
     return NextResponse.json(
       {
         success: false,
-        message: "Not authenticated.",
+        message:
+          "Unable to look up recipient.",
       },
-      { status: 401 }
+      { status: 500 }
     );
   }
-
-  const session = await verifySessionToken(token);
-
-  if (!session) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Invalid session.",
-      },
-      { status: 401 }
-    );
-  }
-
-  const url = new URL(request.url);
-  const accountNumber =
-    url.searchParams.get("accountNumber");
-
-  if (!accountNumber || !/^\d{10}$/.test(accountNumber)) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Invalid account number.",
-      },
-      { status: 400 }
-    );
-  }
-
-  const wallet = await prisma.wallet.findUnique({
-    where: {
-      accountNumber,
-    },
-    include: {
-      user: true,
-    },
-  });
-
-  if (!wallet) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Recipient not found.",
-      },
-      { status: 404 }
-    );
-  }
-
-  if (wallet.userId === session.userId) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: "You cannot send money to yourself.",
-      },
-      { status: 400 }
-    );
-  }
-
-  return NextResponse.json({
-    success: true,
-    recipient: {
-      name: `${wallet.user.firstName} ${wallet.user.lastName}`,
-      accountNumber: wallet.accountNumber,
-    },
-  });
 }
