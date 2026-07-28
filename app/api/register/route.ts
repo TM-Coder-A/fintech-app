@@ -3,6 +3,9 @@ import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validation/register";
+import {
+  issueEmailVerificationToken,
+} from "@/lib/email-verification";
 
 function generateAccountNumber() {
   return Math.floor(
@@ -104,6 +107,18 @@ export async function POST(request: Request) {
         wallet: true,
       },
     });
+
+    try {
+      await issueEmailVerificationToken(
+        user.id
+      );
+    } catch (error) {
+      console.error(
+        "Unable to create email verification token:",
+        error
+      );
+    }
+
 
     return NextResponse.json(
       {
