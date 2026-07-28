@@ -57,6 +57,22 @@ function getActivityDetails(
         icon: UserRound,
       };
 
+    case "BENEFICIARY_ADD":
+      return {
+        title: "Recipient saved",
+        description:
+          "A recipient was added to your saved recipients.",
+        icon: UserRound,
+      };
+
+    case "BENEFICIARY_REMOVE":
+      return {
+        title: "Recipient removed",
+        description:
+          "A recipient was removed from your saved recipients.",
+        icon: UserRound,
+      };
+
     case "TRANSFER_SUCCESS":
       return {
         title: "Transfer completed",

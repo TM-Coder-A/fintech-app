@@ -17,6 +17,8 @@ import {
 import { transferSchema } from "@/lib/validation/transfer";
 import { formatCurrency } from "@/lib/format";
 import TransferLimits from "@/components/transfer/TransferLimits";
+import RecipientShortcuts from "@/components/transfer/RecipientShortcuts";
+import SaveBeneficiaryButton from "@/components/transfer/SaveBeneficiaryButton";
 
 type Recipient = {
   name: string;
@@ -283,6 +285,18 @@ export default function TransferPage() {
               onSubmit={handleReview}
               className="space-y-6"
             >
+              <RecipientShortcuts
+                onSelect={(selectedAccountNumber) => {
+                  setAccountNumber(
+                    selectedAccountNumber
+                  );
+                  setRecipient(null);
+                  setRecipientError("");
+                  setServerError("");
+                  setSuccessMessage("");
+                }}
+              />
+
               <div>
                 <label
                   htmlFor="accountNumber"
@@ -336,10 +350,18 @@ export default function TransferPage() {
                     </p>
                   </div>
 
-                  <CheckCircle2
-                    className="ml-auto text-emerald-600"
-                    size={22}
-                  />
+                  <div className="ml-auto flex items-center gap-2">
+                    <SaveBeneficiaryButton
+                      accountNumber={
+                        recipient.accountNumber
+                      }
+                    />
+
+                    <CheckCircle2
+                      className="text-emerald-600"
+                      size={22}
+                    />
+                  </div>
                 </div>
               )}
 
