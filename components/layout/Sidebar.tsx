@@ -11,6 +11,15 @@ import {
 } from "lucide-react";
 
 import LogoutButton from "./LogoutButton";
+import { formatCurrency } from "@/lib/format";
+
+interface SidebarProps {
+  user: {
+    firstName: string;
+    lastName: string;
+    balance: number;
+  };
+}
 
 const navItems = [
   {
@@ -35,7 +44,9 @@ const navItems = [
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({
+  user,
+}: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -54,7 +65,17 @@ export default function Sidebar() {
           </span>
         </Link>
 
-        <nav className="mt-10 space-y-2">
+        <div className="mt-8">
+          <p className="text-xs uppercase tracking-wider text-slate-400">
+            Signed in as
+          </p>
+
+          <p className="mt-1 font-semibold text-slate-950">
+            {user.firstName} {user.lastName}
+          </p>
+        </div>
+
+        <nav className="mt-8 space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href;
@@ -79,11 +100,11 @@ export default function Sidebar() {
         <div className="mt-auto">
           <div className="rounded-2xl bg-slate-950 p-4 text-white">
             <p className="text-sm text-slate-400">
-              Secure session
+              Available balance
             </p>
 
-            <p className="mt-1 text-sm font-semibold">
-              Signed in
+            <p className="mt-1 text-lg font-bold">
+              {formatCurrency(user.balance)}
             </p>
           </div>
 
