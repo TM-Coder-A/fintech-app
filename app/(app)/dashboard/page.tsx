@@ -102,13 +102,13 @@ export default async function DashboardPage() {
                 Send
               </Link>
 
-              <button
-                type="button"
+              <Link
+                href="/fund"
                 className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-white/10 p-4 text-sm font-medium transition hover:bg-white/15"
               >
                 <Plus size={20} />
                 Add Money
-              </button>
+              </Link>
 
               <Link
                 href="/transactions"
@@ -207,9 +207,10 @@ export default async function DashboardPage() {
                     : transaction.receiverWallet?.user;
 
                 return (
-                  <div
+                  <Link
                     key={transaction.id}
-                    className="flex items-center justify-between gap-4 px-6 py-5"
+                    href={`/transactions/${transaction.id}`}
+                    className="flex items-center justify-between gap-4 px-6 py-5 transition hover:bg-slate-50"
                   >
                     <div className="flex items-center gap-4">
                       <div
@@ -265,7 +266,7 @@ export default async function DashboardPage() {
                         )}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>

@@ -1,68 +1,53 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  Plus,
 } from "lucide-react";
 
 import { prisma } from "@/lib/prisma";
-import { verifySessionToken } from "@/lib/session";
+import { getCurrentUser } from "@/lib/current-user";
 import { formatCurrency } from "@/lib/format";
+
 import PageHeader from "@/components/ui/PageHeader";
 import StatusBadge from "@/components/ui/StatusBadge";
 
 export default async function TransactionsPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session")?.value;
+  const user = await getCurrentUser();
 
-  if (!token) {
-    redirect("/login");
+  if (!user.wallet) {
+    return null;
   }
 
-  const session =
-    await verifySessionToken(token);
-
-  if (!session) {
-    redirect("/login");
-  }
-
-  const user = await prisma.user.findUnique({
-    where: {
-      id: session.userId,
-    },
-    include: {
-      wallet: true,
-    },
-  });
-
-  if (!user?.wallet) {
-    redirect("/login");
-  }
+  const wallet = user.wallet;
 
   const transactions =
     await prisma.transaction.findMany({
       where: {
         OR: [
           {
-            senderWalletId: user.wallet.id,
+            senderWalletId: wallet.id,
           },
           {
-            receiverWalletId: user.wallet.id,
+            receiverWalletId: wallet.id,
           },
         ],
       },
+
       include: {
         senderWallet: {
           include: {
             user: true,
           },
         },
+
         receiverWallet: {
           include: {
             user: true,
           },
         },
       },
+
       orderBy: {
         createdAt: "desc",
       },
@@ -84,35 +69,63 @@ export default async function TransactionsPage() {
               </p>
 
               <p className="mt-2 text-sm text-slate-500">
-                Your completed transfers will appear here.
+                Your wallet activity will appear here.
               </p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
               {transactions.map((transaction) => {
+                const isFunding =
+                  transaction.type === "FUNDING";
+
                 const incoming =
                   transaction.receiverWalletId ===
-                  user.wallet!.id;
+                  wallet.id;
 
                 const counterparty =
                   incoming
                     ? transaction.senderWallet?.user
                     : transaction.receiverWallet?.user;
 
+                let title = "";
+                let subtitle = "";
+
+                if (isFunding) {
+                  title = "Wallet funded";
+                  subtitle =
+                    transaction.narration ??
+                    "Wallet funding";
+                } else if (incoming) {
+                  title = "Money received";
+
+                  subtitle = counterparty
+                    ? `From ${counterparty.firstName} ${counterparty.lastName}`
+                    : "Wallet transfer";
+                } else {
+                  title = "Money sent";
+
+                  subtitle = counterparty
+                    ? `To ${counterparty.firstName} ${counterparty.lastName}`
+                    : "Wallet transfer";
+                }
+
                 return (
-                  <div
+                  <Link
                     key={transaction.id}
-                    className="flex items-center justify-between gap-4 px-6 py-5"
+                    href={`/transactions/${transaction.id}`}
+                    className="flex items-center justify-between gap-4 px-6 py-5 transition hover:bg-slate-50"
                   >
                     <div className="flex items-center gap-4">
                       <div
                         className={
-                          incoming
+                          isFunding || incoming
                             ? "rounded-xl bg-emerald-50 p-3 text-emerald-600"
                             : "rounded-xl bg-rose-50 p-3 text-rose-600"
                         }
                       >
-                        {incoming ? (
+                        {isFunding ? (
+                          <Plus size={20} />
+                        ) : incoming ? (
                           <ArrowDownLeft size={20} />
                         ) : (
                           <ArrowUpRight size={20} />
@@ -121,15 +134,11 @@ export default async function TransactionsPage() {
 
                       <div>
                         <p className="font-semibold">
-                          {incoming
-                            ? "Money received"
-                            : "Money sent"}
+                          {title}
                         </p>
 
                         <p className="mt-1 text-sm text-slate-500">
-                          {counterparty
-                            ? `${incoming ? "From" : "To"} ${counterparty.firstName} ${counterparty.lastName}`
-                            : "Wallet transfer"}
+                          {subtitle}
                         </p>
 
                         <p className="mt-1 text-xs text-slate-400">
@@ -141,12 +150,12 @@ export default async function TransactionsPage() {
                     <div className="text-right">
                       <p
                         className={
-                          incoming
+                          isFunding || incoming
                             ? "font-semibold text-emerald-600"
                             : "font-semibold text-slate-950"
                         }
                       >
-                        {incoming ? "+" : "-"}
+                        {isFunding || incoming ? "+" : "-"}
                         {formatCurrency(
                           Number(transaction.amount)
                         )}
@@ -155,9 +164,11 @@ export default async function TransactionsPage() {
                       <div className="mt-2">
                         <StatusBadge
                           status={
-                            transaction.status === "SUCCESSFUL"
+                            transaction.status ===
+                            "SUCCESSFUL"
                               ? "Successful"
-                              : transaction.status === "FAILED"
+                              : transaction.status ===
+                                "FAILED"
                               ? "Failed"
                               : "Pending"
                           }
@@ -170,7 +181,7 @@ export default async function TransactionsPage() {
                         )}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
