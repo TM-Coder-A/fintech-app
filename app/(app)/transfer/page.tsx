@@ -22,8 +22,11 @@ export default function TransferPage() {
   const [accountNumber, setAccountNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [narration, setNarration] = useState("");
+
   const [errors, setErrors] = useState<TransferErrors>({});
   const [successMessage, setSuccessMessage] = useState("");
+  const [serverError, setServerError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const recipient = useMemo(() => {
     if (accountNumber.length === 10) {
@@ -49,11 +52,14 @@ export default function TransferPage() {
     });
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
 
     setErrors({});
     setSuccessMessage("");
+    setServerError("");
 
     const values = {
       accountNumber,
@@ -87,17 +93,40 @@ export default function TransferPage() {
 
     if (!recipient) {
       setErrors({
-        accountNumber:
-          "Recipient could not be confirmed.",
+        accountNumber: "Recipient could not be confirmed.",
       });
+
       return;
     }
 
-    console.log("Validated transfer data:", result.data);
+    try {
+      setLoading(true);
 
-    setSuccessMessage(
-      "Transfer details are valid. No money has been moved."
-    );
+      const response = await fetch("/api/transfer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(result.data),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setServerError(
+          data.message ?? "Transfer request failed."
+        );
+        return;
+      }
+
+      setSuccessMessage(data.message);
+    } catch {
+      setServerError(
+        "Could not reach the server. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -145,9 +174,11 @@ export default function TransferPage() {
                   );
 
                   clearFieldError("accountNumber");
+                  setSuccessMessage("");
+                  setServerError("");
                 }}
                 placeholder="Enter 10-digit account number"
-                className={`w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:ring-4 ${
+                className={`w-full rounded-xl border bg-white px-4 py-3 text-slate-950 outline-none transition focus:ring-4 ${
                   errors.accountNumber
                     ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
                     : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
@@ -159,6 +190,10 @@ export default function TransferPage() {
                   {errors.accountNumber}
                 </p>
               )}
+
+              <p className="mt-2 text-xs text-slate-500">
+                Demo recipient lookup activates after 10 digits.
+              </p>
             </div>
 
             {recipient && (
@@ -207,9 +242,11 @@ export default function TransferPage() {
                   onChange={(event) => {
                     setAmount(event.target.value);
                     clearFieldError("amount");
+                    setSuccessMessage("");
+                    setServerError("");
                   }}
                   placeholder="0.00"
-                  className={`w-full rounded-xl border bg-white py-3 pl-9 pr-4 outline-none transition focus:ring-4 ${
+                  className={`w-full rounded-xl border bg-white py-3 pl-9 pr-4 text-slate-950 outline-none transition focus:ring-4 ${
                     errors.amount
                       ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
                       : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
@@ -241,9 +278,11 @@ export default function TransferPage() {
                 onChange={(event) => {
                   setNarration(event.target.value);
                   clearFieldError("narration");
+                  setSuccessMessage("");
+                  setServerError("");
                 }}
                 placeholder="What is this transfer for?"
-                className={`w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:ring-4 ${
+                className={`w-full rounded-xl border bg-white px-4 py-3 text-slate-950 outline-none transition focus:ring-4 ${
                   errors.narration
                     ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
                     : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
@@ -265,21 +304,31 @@ export default function TransferPage() {
               </div>
             </div>
 
+            {serverError && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                {serverError}
+              </div>
+            )}
+
             {successMessage && (
               <div className="flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
                 <CheckCircle2
                   size={20}
                   className="shrink-0"
                 />
+
                 <p>{successMessage}</p>
               </div>
             )}
 
             <button
               type="submit"
-              className="w-full rounded-xl bg-emerald-600 px-5 py-3.5 font-semibold text-white transition hover:bg-emerald-700"
+              disabled={loading}
+              className="w-full rounded-xl bg-emerald-600 px-5 py-3.5 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              Review Transfer
+              {loading
+                ? "Checking transfer..."
+                : "Review Transfer"}
             </button>
           </form>
         </section>
@@ -314,7 +363,7 @@ export default function TransferPage() {
                   Recipient
                 </span>
 
-                <span className="text-right font-medium">
+                <span className="text-right font-medium text-slate-900">
                   {recipient
                     ? recipient.name
                     : "Not selected"}
@@ -326,7 +375,7 @@ export default function TransferPage() {
                   Account
                 </span>
 
-                <span className="font-medium">
+                <span className="font-medium text-slate-900">
                   {accountNumber || "—"}
                 </span>
               </div>
@@ -336,7 +385,7 @@ export default function TransferPage() {
                   Amount
                 </span>
 
-                <span className="font-semibold">
+                <span className="font-semibold text-slate-950">
                   {amount && Number(amount) > 0
                     ? formatCurrency(Number(amount))
                     : formatCurrency(0)}
@@ -348,7 +397,7 @@ export default function TransferPage() {
                   Narration
                 </span>
 
-                <span className="max-w-[180px] text-right font-medium">
+                <span className="max-w-[180px] text-right font-medium text-slate-900">
                   {narration || "—"}
                 </span>
               </div>

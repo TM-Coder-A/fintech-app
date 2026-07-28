@@ -31,7 +31,9 @@ export default function RegisterPage() {
     useState(false);
 
   const [errors, setErrors] = useState<FormErrors>({});
-  const [successMessage, setSuccessMessage] = useState("");
+  const [message, setMessage] = useState("");
+  const [serverError, setServerError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   function clearFieldError(field: RegisterField) {
     setErrors((current) => {
@@ -46,40 +48,36 @@ export default function RegisterPage() {
     });
   }
 
-  function handleSubmit(
+  async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
     setErrors({});
-    setSuccessMessage("");
+    setMessage("");
+    setServerError("");
 
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
 
     const values = {
-      firstName: String(
-        formData.get("firstName") ?? ""
-      ),
-      lastName: String(
-        formData.get("lastName") ?? ""
-      ),
+      firstName: String(formData.get("firstName") ?? ""),
+      lastName: String(formData.get("lastName") ?? ""),
       email: String(formData.get("email") ?? ""),
       phone: String(formData.get("phone") ?? ""),
-      password: String(
-        formData.get("password") ?? ""
-      ),
+      password: String(formData.get("password") ?? ""),
       confirmPassword: String(
         formData.get("confirmPassword") ?? ""
       ),
       terms: formData.get("terms") === "on",
     };
 
-    const result = registerSchema.safeParse(values);
+    const clientResult = registerSchema.safeParse(values);
 
-    if (!result.success) {
+    if (!clientResult.success) {
       const nextErrors: FormErrors = {};
 
-      for (const issue of result.error.issues) {
+      for (const issue of clientResult.error.issues) {
         const field = issue.path[0];
 
         if (
@@ -106,20 +104,40 @@ export default function RegisterPage() {
       return;
     }
 
-    console.log(
-      "Validated registration data:",
-      result.data
-    );
+    try {
+      setLoading(true);
 
-    setSuccessMessage(
-      "Registration details are valid. Database connection comes later."
-    );
+      const response = await fetch("/api/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(clientResult.data),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setServerError(
+          data.message ?? "Registration request failed."
+        );
+        return;
+      }
+
+      setMessage(data.message);
+      form.reset();
+    } catch {
+      setServerError(
+        "Could not reach the server. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="grid min-h-screen lg:grid-cols-2">
-        {/* LEFT PANEL */}
         <section className="hidden bg-slate-950 p-12 text-white lg:flex lg:flex-col lg:justify-between">
           <Link
             href="/"
@@ -172,7 +190,6 @@ export default function RegisterPage() {
           </p>
         </section>
 
-        {/* RIGHT PANEL */}
         <section className="flex items-center justify-center px-6 py-12 sm:px-10">
           <div className="w-full max-w-lg">
             <Link
@@ -183,16 +200,7 @@ export default function RegisterPage() {
               Back to home
             </Link>
 
-            <div className="mb-8 lg:hidden">
-              <Link
-                href="/"
-                className="text-2xl font-bold text-emerald-600"
-              >
-                NovaPay
-              </Link>
-            </div>
-
-            <h2 className="text-3xl font-bold tracking-tight text-slate-950">
+            <h2 className="text-3xl font-bold text-slate-950">
               Create your account
             </h2>
 
@@ -218,16 +226,10 @@ export default function RegisterPage() {
                     id="firstName"
                     name="firstName"
                     type="text"
-                    autoComplete="given-name"
-                    placeholder="John"
                     onChange={() =>
                       clearFieldError("firstName")
                     }
-                    className={`w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:ring-4 ${
-                      errors.firstName
-                        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
-                        : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
-                    }`}
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
                   />
 
                   {errors.firstName && (
@@ -249,16 +251,10 @@ export default function RegisterPage() {
                     id="lastName"
                     name="lastName"
                     type="text"
-                    autoComplete="family-name"
-                    placeholder="Doe"
                     onChange={() =>
                       clearFieldError("lastName")
                     }
-                    className={`w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:ring-4 ${
-                      errors.lastName
-                        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
-                        : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
-                    }`}
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
                   />
 
                   {errors.lastName && (
@@ -274,23 +270,17 @@ export default function RegisterPage() {
                   htmlFor="email"
                   className="mb-2 block text-sm font-medium text-slate-700"
                 >
-                  Email address
+                  Email
                 </label>
 
                 <input
                   id="email"
                   name="email"
                   type="email"
-                  autoComplete="email"
-                  placeholder="john@example.com"
                   onChange={() =>
                     clearFieldError("email")
                   }
-                  className={`w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:ring-4 ${
-                    errors.email
-                      ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
-                      : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
-                  }`}
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
                 />
 
                 {errors.email && (
@@ -305,23 +295,17 @@ export default function RegisterPage() {
                   htmlFor="phone"
                   className="mb-2 block text-sm font-medium text-slate-700"
                 >
-                  Phone number
+                  Phone
                 </label>
 
                 <input
                   id="phone"
                   name="phone"
                   type="tel"
-                  autoComplete="tel"
-                  placeholder="+44 7000 000000"
                   onChange={() =>
                     clearFieldError("phone")
                   }
-                  className={`w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:ring-4 ${
-                    errors.phone
-                      ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
-                      : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
-                  }`}
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-500"
                 />
 
                 {errors.phone && (
@@ -343,36 +327,19 @@ export default function RegisterPage() {
                   <input
                     id="password"
                     name="password"
-                    type={
-                      showPassword
-                        ? "text"
-                        : "password"
-                    }
-                    autoComplete="new-password"
-                    placeholder="Create a strong password"
+                    type={showPassword ? "text" : "password"}
                     onChange={() =>
                       clearFieldError("password")
                     }
-                    className={`w-full rounded-xl border bg-white px-4 py-3 pr-12 outline-none transition focus:ring-4 ${
-                      errors.password
-                        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
-                        : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
-                    }`}
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-12 outline-none focus:border-emerald-500"
                   />
 
                   <button
                     type="button"
                     onClick={() =>
-                      setShowPassword(
-                        (current) => !current
-                      )
+                      setShowPassword((value) => !value)
                     }
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
-                    aria-label={
-                      showPassword
-                        ? "Hide password"
-                        : "Show password"
-                    }
                   >
                     {showPassword ? (
                       <EyeOff size={20} />
@@ -382,14 +349,9 @@ export default function RegisterPage() {
                   </button>
                 </div>
 
-                {errors.password ? (
+                {errors.password && (
                   <p className="mt-2 text-sm text-rose-600">
                     {errors.password}
-                  </p>
-                ) : (
-                  <p className="mt-2 text-xs text-slate-500">
-                    At least 8 characters including
-                    uppercase, lowercase and a number.
                   </p>
                 )}
               </div>
@@ -411,33 +373,20 @@ export default function RegisterPage() {
                         ? "text"
                         : "password"
                     }
-                    autoComplete="new-password"
-                    placeholder="Repeat your password"
                     onChange={() =>
-                      clearFieldError(
-                        "confirmPassword"
-                      )
+                      clearFieldError("confirmPassword")
                     }
-                    className={`w-full rounded-xl border bg-white px-4 py-3 pr-12 outline-none transition focus:ring-4 ${
-                      errors.confirmPassword
-                        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
-                        : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
-                    }`}
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-12 outline-none focus:border-emerald-500"
                   />
 
                   <button
                     type="button"
                     onClick={() =>
                       setShowConfirmPassword(
-                        (current) => !current
+                        (value) => !value
                       )
                     }
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
-                    aria-label={
-                      showConfirmPassword
-                        ? "Hide confirmed password"
-                        : "Show confirmed password"
-                    }
                   >
                     {showConfirmPassword ? (
                       <EyeOff size={20} />
@@ -454,53 +403,49 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              <div>
-                <label className="flex items-start gap-3">
-                  <input
-                    name="terms"
-                    type="checkbox"
-                    onChange={() =>
-                      clearFieldError("terms")
-                    }
-                    className="mt-1 h-4 w-4 cursor-pointer accent-emerald-600"
-                  />
+              <label className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  name="terms"
+                  onChange={() =>
+                    clearFieldError("terms")
+                  }
+                  className="mt-1 accent-emerald-600"
+                />
 
-                  <span className="text-sm leading-6 text-slate-600">
-                    I agree to the{" "}
-                    <span className="font-medium text-emerald-600">
-                      Terms of Service
-                    </span>{" "}
-                    and{" "}
-                    <span className="font-medium text-emerald-600">
-                      Privacy Policy
-                    </span>
-                    .
-                  </span>
-                </label>
+                <span className="text-sm text-slate-600">
+                  I agree to the Terms of Service and
+                  Privacy Policy.
+                </span>
+              </label>
 
-                {errors.terms && (
-                  <p className="mt-2 text-sm text-rose-600">
-                    {errors.terms}
-                  </p>
-                )}
-              </div>
+              {errors.terms && (
+                <p className="text-sm text-rose-600">
+                  {errors.terms}
+                </p>
+              )}
 
-              {successMessage && (
-                <div className="flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
-                  <CheckCircle2
-                    size={20}
-                    className="shrink-0"
-                  />
+              {serverError && (
+                <div className="rounded-xl bg-rose-50 p-4 text-sm text-rose-700">
+                  {serverError}
+                </div>
+              )}
 
-                  <p>{successMessage}</p>
+              {message && (
+                <div className="flex gap-3 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-700">
+                  <CheckCircle2 size={20} />
+                  {message}
                 </div>
               )}
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-emerald-600 px-5 py-3.5 font-semibold text-white transition hover:bg-emerald-700"
+                disabled={loading}
+                className="w-full rounded-xl bg-emerald-600 px-5 py-3.5 font-semibold text-white disabled:bg-slate-300"
               >
-                Create Account
+                {loading
+                  ? "Creating account..."
+                  : "Create Account"}
               </button>
             </form>
 
@@ -508,7 +453,7 @@ export default function RegisterPage() {
               Already have an account?{" "}
               <Link
                 href="/login"
-                className="font-semibold text-emerald-600 hover:underline"
+                className="font-semibold text-emerald-600"
               >
                 Sign in
               </Link>
