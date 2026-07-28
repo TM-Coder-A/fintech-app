@@ -228,6 +228,30 @@ enum AccountingSide {
   CREDIT
 }
 
+model ReconciliationRun {
+  id                        String               @id @default(cuid())
+  status                    ReconciliationStatus @default(RUNNING)
+  walletCount               Int                  @default(0)
+  discrepancyCount          Int                  @default(0)
+  ledgerErrorCount          Int                  @default(0)
+  accountingErrorCount      Int                  @default(0)
+  unfinishedPostingCount    Int                  @default(0)
+  transactionCoverageErrors Int                  @default(0)
+  report                    Json?
+  startedAt                 DateTime             @default(now())
+  completedAt               DateTime?
+
+  @@index([status])
+  @@index([startedAt])
+}
+
+enum ReconciliationStatus {
+  RUNNING
+  PASSED
+  ISSUES_FOUND
+  ERROR
+}
+
 model AuditLog {
   id         String   @id @default(cuid())
   userId     String?

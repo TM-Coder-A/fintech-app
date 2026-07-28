@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "reconcile": "node scripts/run-reconciliation.mjs",
+    "reconcile:history": "node scripts/reconciliation-history.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
