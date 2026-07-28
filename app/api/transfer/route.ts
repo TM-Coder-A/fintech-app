@@ -1,15 +1,11 @@
+import { randomUUID } from "crypto";
+
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { verifySessionToken } from "@/lib/session";
 import { transferSchema } from "@/lib/validation/transfer";
-
-function generateReference() {
-  return `TX-${Date.now()}-${Math.floor(
-    1000 + Math.random() * 9000
-  )}`;
-}
 
 export async function POST(request: Request) {
   try {
@@ -26,13 +22,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const session = await verifySessionToken(token);
+    const session =
+      await verifySessionToken(token);
 
     if (!session) {
       return NextResponse.json(
         {
           success: false,
-          message: "Invalid or expired session.",
+          message:
+            "Invalid or expired session.",
         },
         { status: 401 }
       );
@@ -40,7 +38,8 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    const result = transferSchema.safeParse(body);
+    const result =
+      transferSchema.safeParse(body);
 
     if (!result.success) {
       return NextResponse.json(
@@ -53,14 +52,60 @@ export async function POST(request: Request) {
       );
     }
 
-    const sender = await prisma.user.findUnique({
-      where: {
-        id: session.userId,
-      },
-      include: {
-        wallet: true,
-      },
-    });
+    const {
+      accountNumber,
+      amount,
+      narration,
+      idempotencyKey,
+    } = result.data;
+
+    /*
+     * If this exact transfer request was already
+     * processed, return the original result instead
+     * of debiting again.
+     */
+    const existingTransaction =
+      await prisma.transaction.findUnique({
+        where: {
+          idempotencyKey,
+        },
+        include: {
+          receiverWallet: {
+            include: {
+              user: true,
+            },
+          },
+        },
+      });
+
+    if (existingTransaction) {
+      return NextResponse.json({
+        success: true,
+        duplicate: true,
+        message:
+          "Transfer was already processed.",
+        transaction: {
+          reference:
+            existingTransaction.reference,
+          amount:
+            existingTransaction.amount.toString(),
+          recipient:
+            existingTransaction.receiverWallet
+              ? `${existingTransaction.receiverWallet.user.firstName} ${existingTransaction.receiverWallet.user.lastName}`
+              : "Recipient",
+        },
+      });
+    }
+
+    const sender =
+      await prisma.user.findUnique({
+        where: {
+          id: session.userId,
+        },
+        include: {
+          wallet: true,
+        },
+      });
 
     if (!sender?.wallet) {
       return NextResponse.json(
@@ -72,100 +117,133 @@ export async function POST(request: Request) {
       );
     }
 
-    const receiverWallet = await prisma.wallet.findUnique({
-      where: {
-        accountNumber: result.data.accountNumber,
-      },
-      include: {
-        user: true,
-      },
-    });
+    const receiverWallet =
+      await prisma.wallet.findUnique({
+        where: {
+          accountNumber,
+        },
+        include: {
+          user: true,
+        },
+      });
 
     if (!receiverWallet) {
       return NextResponse.json(
         {
           success: false,
-          message: "Recipient account not found.",
+          message:
+            "Recipient account not found.",
         },
         { status: 404 }
       );
     }
 
-    if (receiverWallet.id === sender.wallet.id) {
+    if (
+      receiverWallet.id === sender.wallet.id
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "You cannot transfer money to your own wallet.",
+          message:
+            "You cannot transfer money to your own wallet.",
         },
         { status: 400 }
       );
     }
 
-    const amount = result.data.amount;
-
-    if (Number(sender.wallet.balance) < amount) {
+    if (
+      receiverWallet.currency !==
+      sender.wallet.currency
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Insufficient balance.",
+          message:
+            "Wallet currencies do not match.",
         },
         { status: 400 }
       );
     }
 
-    const reference = generateReference();
+    const reference =
+      `TX-${randomUUID()}`;
 
-    const transaction = await prisma.$transaction(async (tx) => {
-      const updatedSender = await tx.wallet.updateMany({
-        where: {
-          id: sender.wallet!.id,
-          balance: {
-            gte: amount,
-          },
-        },
-        data: {
-          balance: {
-            decrement: amount,
-          },
-        },
-      });
+    const transaction =
+      await prisma.$transaction(
+        async (tx) => {
+          /*
+           * Atomic conditional debit.
+           *
+           * This succeeds only when the current
+           * balance is still >= amount.
+           */
+          const senderDebit =
+            await tx.wallet.updateMany({
+              where: {
+                id: sender.wallet!.id,
+                balance: {
+                  gte: amount,
+                },
+              },
 
-      if (updatedSender.count !== 1) {
-        throw new Error("INSUFFICIENT_BALANCE");
-      }
+              data: {
+                balance: {
+                  decrement: amount,
+                },
+              },
+            });
 
-      await tx.wallet.update({
-        where: {
-          id: receiverWallet.id,
-        },
-        data: {
-          balance: {
-            increment: amount,
-          },
-        },
-      });
+          if (senderDebit.count !== 1) {
+            throw new Error(
+              "INSUFFICIENT_BALANCE"
+            );
+          }
 
-      return tx.transaction.create({
-        data: {
-          reference,
-          amount,
-          narration: result.data.narration,
-          type: "TRANSFER",
-          status: "SUCCESSFUL",
-          senderWalletId: sender.wallet!.id,
-          receiverWalletId: receiverWallet.id,
-        },
-      });
-    });
+          await tx.wallet.update({
+            where: {
+              id: receiverWallet.id,
+            },
+
+            data: {
+              balance: {
+                increment: amount,
+              },
+            },
+          });
+
+          return tx.transaction.create({
+            data: {
+              reference,
+              idempotencyKey,
+              amount,
+              narration,
+              type: "TRANSFER",
+              status: "SUCCESSFUL",
+              senderWalletId:
+                sender.wallet!.id,
+              receiverWalletId:
+                receiverWallet.id,
+            },
+          });
+        }
+      );
 
     return NextResponse.json(
       {
         success: true,
-        message: "Transfer completed successfully.",
+        duplicate: false,
+        message:
+          "Transfer completed successfully.",
+
         transaction: {
-          reference: transaction.reference,
-          amount: transaction.amount.toString(),
-          recipient: `${receiverWallet.user.firstName} ${receiverWallet.user.lastName}`,
+          reference:
+            transaction.reference,
+
+          amount:
+            transaction.amount.toString(),
+
+          recipient:
+            `${receiverWallet.user.firstName} ${receiverWallet.user.lastName}`,
         },
       },
       { status: 200 }
@@ -173,23 +251,34 @@ export async function POST(request: Request) {
   } catch (error) {
     if (
       error instanceof Error &&
-      error.message === "INSUFFICIENT_BALANCE"
+      error.message ===
+        "INSUFFICIENT_BALANCE"
     ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Insufficient balance.",
+          message:
+            "Insufficient balance.",
         },
         { status: 400 }
       );
     }
 
-    console.error("Transfer error:", error);
+    /*
+     * A concurrent duplicate request may hit
+     * the unique idempotency constraint.
+     * It will roll back automatically.
+     */
+    console.error(
+      "Transfer error:",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
-        message: "Unable to complete transfer.",
+        message:
+          "Unable to complete transfer.",
       },
       { status: 500 }
     );

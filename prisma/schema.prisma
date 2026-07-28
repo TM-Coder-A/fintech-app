@@ -38,6 +38,7 @@ model Wallet {
 model Transaction {
   id               String            @id @default(cuid())
   reference        String            @unique
+  idempotencyKey   String?           @unique
   amount           Decimal
   narration        String?
   type             TransactionType
