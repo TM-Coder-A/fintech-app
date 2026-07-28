@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { FormEvent, useState } from "react";
 import {
   ArrowLeft,
+  CheckCircle2,
   Eye,
   EyeOff,
   LockKeyhole,
@@ -11,9 +12,109 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { registerSchema } from "@/lib/validation/register";
+
+type RegisterField =
+  | "firstName"
+  | "lastName"
+  | "email"
+  | "phone"
+  | "password"
+  | "confirmPassword"
+  | "terms";
+
+type FormErrors = Partial<Record<RegisterField, string>>;
+
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState(false);
+
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [successMessage, setSuccessMessage] = useState("");
+
+  function clearFieldError(field: RegisterField) {
+    setErrors((current) => {
+      if (!current[field]) {
+        return current;
+      }
+
+      const nextErrors = { ...current };
+      delete nextErrors[field];
+
+      return nextErrors;
+    });
+  }
+
+  function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    setErrors({});
+    setSuccessMessage("");
+
+    const formData = new FormData(event.currentTarget);
+
+    const values = {
+      firstName: String(
+        formData.get("firstName") ?? ""
+      ),
+      lastName: String(
+        formData.get("lastName") ?? ""
+      ),
+      email: String(formData.get("email") ?? ""),
+      phone: String(formData.get("phone") ?? ""),
+      password: String(
+        formData.get("password") ?? ""
+      ),
+      confirmPassword: String(
+        formData.get("confirmPassword") ?? ""
+      ),
+      terms: formData.get("terms") === "on",
+    };
+
+    const result = registerSchema.safeParse(values);
+
+    if (!result.success) {
+      const nextErrors: FormErrors = {};
+
+      for (const issue of result.error.issues) {
+        const field = issue.path[0];
+
+        if (
+          typeof field === "string" &&
+          [
+            "firstName",
+            "lastName",
+            "email",
+            "phone",
+            "password",
+            "confirmPassword",
+            "terms",
+          ].includes(field)
+        ) {
+          const typedField = field as RegisterField;
+
+          if (!nextErrors[typedField]) {
+            nextErrors[typedField] = issue.message;
+          }
+        }
+      }
+
+      setErrors(nextErrors);
+      return;
+    }
+
+    console.log(
+      "Validated registration data:",
+      result.data
+    );
+
+    setSuccessMessage(
+      "Registration details are valid. Database connection comes later."
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -29,7 +130,10 @@ export default function RegisterPage() {
 
           <div className="max-w-lg">
             <div className="mb-8 inline-flex rounded-2xl bg-emerald-500/10 p-4">
-              <Wallet className="text-emerald-400" size={34} />
+              <Wallet
+                className="text-emerald-400"
+                size={34}
+              />
             </div>
 
             <h1 className="text-5xl font-bold leading-tight">
@@ -39,18 +143,25 @@ export default function RegisterPage() {
             </h1>
 
             <p className="mt-6 text-lg leading-8 text-slate-400">
-              Create your NovaPay account and manage payments, transfers,
-              wallet activity and transactions from one secure platform.
+              Create your account and manage payments,
+              transfers and wallet activity from one
+              secure platform.
             </p>
 
             <div className="mt-10 space-y-4">
               <div className="flex items-center gap-3 text-sm text-slate-300">
-                <ShieldCheck className="text-emerald-400" size={20} />
+                <ShieldCheck
+                  className="text-emerald-400"
+                  size={20}
+                />
                 Secure account protection
               </div>
 
               <div className="flex items-center gap-3 text-sm text-slate-300">
-                <LockKeyhole className="text-emerald-400" size={20} />
+                <LockKeyhole
+                  className="text-emerald-400"
+                  size={20}
+                />
                 Protected account credentials
               </div>
             </div>
@@ -66,7 +177,7 @@ export default function RegisterPage() {
           <div className="w-full max-w-lg">
             <Link
               href="/"
-              className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-950"
+              className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950"
             >
               <ArrowLeft size={16} />
               Back to home
@@ -91,7 +202,8 @@ export default function RegisterPage() {
 
             <form
               className="mt-8 space-y-5"
-              onSubmit={(event) => event.preventDefault()}
+              onSubmit={handleSubmit}
+              noValidate
             >
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
@@ -106,11 +218,23 @@ export default function RegisterPage() {
                     id="firstName"
                     name="firstName"
                     type="text"
-                    placeholder="John"
                     autoComplete="given-name"
-                    required
-                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                    placeholder="John"
+                    onChange={() =>
+                      clearFieldError("firstName")
+                    }
+                    className={`w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:ring-4 ${
+                      errors.firstName
+                        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
+                        : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
+                    }`}
                   />
+
+                  {errors.firstName && (
+                    <p className="mt-2 text-sm text-rose-600">
+                      {errors.firstName}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -125,11 +249,23 @@ export default function RegisterPage() {
                     id="lastName"
                     name="lastName"
                     type="text"
-                    placeholder="Doe"
                     autoComplete="family-name"
-                    required
-                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                    placeholder="Doe"
+                    onChange={() =>
+                      clearFieldError("lastName")
+                    }
+                    className={`w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:ring-4 ${
+                      errors.lastName
+                        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
+                        : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
+                    }`}
                   />
+
+                  {errors.lastName && (
+                    <p className="mt-2 text-sm text-rose-600">
+                      {errors.lastName}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -145,11 +281,23 @@ export default function RegisterPage() {
                   id="email"
                   name="email"
                   type="email"
-                  placeholder="john@example.com"
                   autoComplete="email"
-                  required
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                  placeholder="john@example.com"
+                  onChange={() =>
+                    clearFieldError("email")
+                  }
+                  className={`w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:ring-4 ${
+                    errors.email
+                      ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
+                      : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
+                  }`}
                 />
+
+                {errors.email && (
+                  <p className="mt-2 text-sm text-rose-600">
+                    {errors.email}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -164,11 +312,23 @@ export default function RegisterPage() {
                   id="phone"
                   name="phone"
                   type="tel"
-                  placeholder="+44 7000 000000"
                   autoComplete="tel"
-                  required
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                  placeholder="+44 7000 000000"
+                  onChange={() =>
+                    clearFieldError("phone")
+                  }
+                  className={`w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:ring-4 ${
+                    errors.phone
+                      ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
+                      : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
+                  }`}
                 />
+
+                {errors.phone && (
+                  <p className="mt-2 text-sm text-rose-600">
+                    {errors.phone}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -183,22 +343,35 @@ export default function RegisterPage() {
                   <input
                     id="password"
                     name="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a strong password"
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
                     autoComplete="new-password"
-                    required
-                    minLength={8}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-12 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                    placeholder="Create a strong password"
+                    onChange={() =>
+                      clearFieldError("password")
+                    }
+                    className={`w-full rounded-xl border bg-white px-4 py-3 pr-12 outline-none transition focus:ring-4 ${
+                      errors.password
+                        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
+                        : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
+                    }`}
                   />
 
                   <button
                     type="button"
                     onClick={() =>
-                      setShowPassword((current) => !current)
+                      setShowPassword(
+                        (current) => !current
+                      )
                     }
-                    className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-slate-500 transition hover:text-slate-950"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
                     aria-label={
-                      showPassword ? "Hide password" : "Show password"
+                      showPassword
+                        ? "Hide password"
+                        : "Show password"
                     }
                   >
                     {showPassword ? (
@@ -209,9 +382,16 @@ export default function RegisterPage() {
                   </button>
                 </div>
 
-                <p className="mt-2 text-xs text-slate-500">
-                  Use at least 8 characters.
-                </p>
+                {errors.password ? (
+                  <p className="mt-2 text-sm text-rose-600">
+                    {errors.password}
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-500">
+                    At least 8 characters including
+                    uppercase, lowercase and a number.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -226,20 +406,33 @@ export default function RegisterPage() {
                   <input
                     id="confirmPassword"
                     name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Repeat your password"
+                    type={
+                      showConfirmPassword
+                        ? "text"
+                        : "password"
+                    }
                     autoComplete="new-password"
-                    required
-                    minLength={8}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-12 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                    placeholder="Repeat your password"
+                    onChange={() =>
+                      clearFieldError(
+                        "confirmPassword"
+                      )
+                    }
+                    className={`w-full rounded-xl border bg-white px-4 py-3 pr-12 outline-none transition focus:ring-4 ${
+                      errors.confirmPassword
+                        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
+                        : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/10"
+                    }`}
                   />
 
                   <button
                     type="button"
                     onClick={() =>
-                      setShowConfirmPassword((current) => !current)
+                      setShowConfirmPassword(
+                        (current) => !current
+                      )
                     }
-                    className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-slate-500 transition hover:text-slate-950"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
                     aria-label={
                       showConfirmPassword
                         ? "Hide confirmed password"
@@ -253,38 +446,59 @@ export default function RegisterPage() {
                     )}
                   </button>
                 </div>
+
+                {errors.confirmPassword && (
+                  <p className="mt-2 text-sm text-rose-600">
+                    {errors.confirmPassword}
+                  </p>
+                )}
               </div>
 
-              <label className="flex items-start gap-3">
-                <input
-                  name="terms"
-                  type="checkbox"
-                  required
-                  className="mt-1 h-4 w-4 cursor-pointer accent-emerald-600"
-                />
+              <div>
+                <label className="flex items-start gap-3">
+                  <input
+                    name="terms"
+                    type="checkbox"
+                    onChange={() =>
+                      clearFieldError("terms")
+                    }
+                    className="mt-1 h-4 w-4 cursor-pointer accent-emerald-600"
+                  />
 
-                <span className="text-sm leading-6 text-slate-600">
-                  I agree to the{" "}
-                  <Link
-                    href="#"
-                    className="font-medium text-emerald-600 hover:underline"
-                  >
-                    Terms of Service
-                  </Link>{" "}
-                  and{" "}
-                  <Link
-                    href="#"
-                    className="font-medium text-emerald-600 hover:underline"
-                  >
-                    Privacy Policy
-                  </Link>
-                  .
-                </span>
-              </label>
+                  <span className="text-sm leading-6 text-slate-600">
+                    I agree to the{" "}
+                    <span className="font-medium text-emerald-600">
+                      Terms of Service
+                    </span>{" "}
+                    and{" "}
+                    <span className="font-medium text-emerald-600">
+                      Privacy Policy
+                    </span>
+                    .
+                  </span>
+                </label>
+
+                {errors.terms && (
+                  <p className="mt-2 text-sm text-rose-600">
+                    {errors.terms}
+                  </p>
+                )}
+              </div>
+
+              {successMessage && (
+                <div className="flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+                  <CheckCircle2
+                    size={20}
+                    className="shrink-0"
+                  />
+
+                  <p>{successMessage}</p>
+                </div>
+              )}
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-emerald-600 px-5 py-3.5 font-semibold text-white transition hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-500/20"
+                className="w-full rounded-xl bg-emerald-600 px-5 py-3.5 font-semibold text-white transition hover:bg-emerald-700"
               >
                 Create Account
               </button>
