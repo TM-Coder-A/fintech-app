@@ -266,7 +266,7 @@ model FundingAttempt {
   status                FundingAttemptStatus @default(PENDING)
   authorizationUrl      String?
   accessCode            String?
-  providerTransactionId String?
+  providerTransactionId String?              @unique
   channel               String?
   paidAt                DateTime?
   createdAt             DateTime             @default(now())

@@ -132,7 +132,8 @@ export async function GET(
           payment.channel,
 
         walletCredited:
-          false,
+          attempt.status ===
+            "SUCCESSFUL",
       },
     });
   } catch (error) {
